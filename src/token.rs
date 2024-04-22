@@ -21,6 +21,8 @@ pub enum TokenType {
     Interface,
     Struct,
     Type,
+    Ref,
+    SelfRef,
 
     If,
     Else,
@@ -62,7 +64,7 @@ pub enum TokenType {
     Inc,
     Dec,
 
-    //logical operators 
+    //logical operators
     And,
     Or,
 

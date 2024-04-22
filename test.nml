@@ -1,0 +1,43 @@
+let a = 1
+
+let a = int 1
+let f x y  = fn int float -> int {
+
+}
+
+let b = int f 1 2 // 3
+
+if a > 0 do 
+	print a 
+end
+
+for a in 0..20 do 
+	print(a)
+end 
+
+@derive(PartialEq, Eq)
+type struct Test {
+	int a,
+	float b, 
+	string c,
+}
+
+type enum TestEnum {
+	Variant1,
+	Variant2(string),
+	Variant3(Test, string),
+}
+
+
+type alias newName = TestEnum
+
+interface Add {
+	fn Add(int a, int b) -> int ;
+}
+
+implement Add for TestStruct {
+	fn Add(int a, int b) -> int {
+		return a + b;
+	}
+}
+

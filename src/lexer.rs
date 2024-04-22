@@ -1,3 +1,6 @@
+use core::panic;
+use std::num::ParseIntError;
+
 use crate::pos::Pos;
 use crate::token::Token;
 use crate::token::TokenTrivia;
@@ -53,22 +56,21 @@ impl Lexer {
                     list.push(Token::new(token_type, self.pos()));
                 }
                 '0'..='9' => {
-                    let nr_arr = self.take_until(|x| !(is_number(x) || x == '.'), true);
-                    let mut mul = 1;
-                    println!("{:?}", nr_arr);
+                    let token_nr = self.take_number();
+                    list.push(Token::new(token_nr, self.pos()));
+                    // let nr_arr = self.take_until(|x| !(is_number(x) || x == '.'), true);
+                    // let mut mul = 1;
 
-                    if is_valid_float(&nr_arr) {}
-
-                    let nr = nr_arr
-                        .into_iter()
-                        .map(|c| {
-                            let a = (c as i64 - '0' as i64) * mul;
-                            mul *= 10;
-                            println!("{a:?}");
-                            return a;
-                        })
-                        .sum();
-                    list.push(Token::new(TokenType::IntNumber(nr), self.pos()));
+                    // let nr = nr_arr
+                    //     .into_iter()
+                    //     .map(|c| {
+                    //         let a = (c as i64 - '0' as i64) * mul;
+                    //         mul *= 10;
+                    //         println!("{a:?}");
+                    //         return a;
+                    //     })
+                    //     .sum();
+                    // list.push(Token::new(TokenType::IntNumber(nr), self.pos()));
                 }
                 '_' => list.push(Token::new(TokenType::Discard, self.pos())),
                 '=' => {
@@ -113,7 +115,7 @@ impl Lexer {
                             list.push(Token::new(TokenType::Range(true), self.pos()));
                         } else {
                             // range ..
-                            list.push(Token::new(TokenType::Range(true), self.pos()));
+                            list.push(Token::new(TokenType::Range(false), self.pos()));
                         }
                     } else {
                         // method accessor, or whatever its called
@@ -179,34 +181,43 @@ impl Lexer {
         Box::new(vec)
     }
 
-    fn take_number(&mut self) -> Box<Vec<char>> {
+    fn take_number(&mut self) -> TokenType {
         let mut vec = vec![];
         let mut is_float = false;
         let mut found_dot = false;
 
         while let Some(ch) = self.current() {
             match ch {
-                'f' => todo!(),
-                '.' if !found_dot => todo!(),
-                '.' if found_dot => todo!(),
+                'f' => {
+                    is_float = true;
+                    break;
+                }
+                '.' if !found_dot => {
+                    found_dot = true;
+                    is_float = true;
+                    vec.push(ch);
+                }
+                '.' if found_dot => {
+                    self.step(-1);
+                    self.step(-1);
+                    return TokenType::IntNumber(1);
+                }
+                //'.' if found_dot => todo!(),
                 '0'..='9' => vec.push(ch),
                 _ => break,
             };
+            self.current += 1;
         }
-        Box::new(vec)
+        if is_float {
+            return TokenType::FloatNumber(convert_to_float(&vec));
+        } else {
+            println!("int");
+            return TokenType::IntNumber(convert_to_int(&vec));
+        }
     }
 
     fn skip_until(&mut self, predicate: fn(char) -> bool) -> () {
         todo!();
-    }
-
-    fn next(&mut self) -> Option<char> {
-        if self.max == self.current {
-            None
-        } else {
-            self.current += 1;
-            Some(self.code[self.current as usize])
-        }
     }
 
     //returns a character and steps forward 1 step
@@ -240,17 +251,6 @@ impl Lexer {
         }
     }
 
-    /// steps back and returns that character
-    fn prev(&mut self) -> Option<char> {
-        if self.current > 0 {
-            self.current -= 1;
-            Some(self.code[self.current as usize])
-        } else {
-            self.current = 0;
-            None
-        }
-    }
-
     //steps <offset> steps forward
     fn step(&mut self, offset: i32) {
         //TODO: Offset ska inte bara vara 1
@@ -274,13 +274,6 @@ impl Lexer {
 
     fn can_take(&self) -> bool {
         self.current <= self.max
-    }
-
-    fn next_is_trivia(&self) -> bool {
-        if let Some(ch) = self.peek() {
-            return is_trivia(ch);
-        }
-        false
     }
 }
 
@@ -311,10 +304,20 @@ fn is_valid_float(nr: &Vec<char>) -> bool {
 }
 
 fn convert_to_int(nr: &Vec<char>) -> i64 {
-    todo!()
+    let str: String = nr.iter().collect();
+    let nr = str.parse::<i64>();
+    match nr {
+        Ok(x) => x,
+        Err(_) => panic!("inget nummer"),
+    }
 }
 fn convert_to_float(nr: &Vec<char>) -> f64 {
-    2.1
+    let str: String = nr.iter().collect();
+    let nr = str.parse::<f64>();
+    match nr {
+        Ok(x) => x,
+        Err(_) => panic!("inget nummer"),
+    }
 }
 
 fn is_valid_int(nr: &Vec<char>) -> bool {
@@ -348,18 +351,51 @@ fn match_litteral(str: &str) -> TokenType {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{convert_to_int, *};
 
     #[test]
-    fn is_float_is_true() {
+    fn test_is_float_is_true() {
         let nr = "10.1".chars().collect();
         assert!(is_valid_float(&nr));
     }
     #[test]
-    fn is_float_is_false() {
+    fn test_is_float_is_false() {
         let nr = vec!['1', '0'];
         assert!(!is_valid_float(&nr));
     }
+
+
+    #[test]
+    fn test_convert_to_int() {
+        let left = 1i64;
+        let right = convert_to_int(&vec!['1']);
+        assert_eq!(left, right);
+
+        let left = 23i64;
+        let right = convert_to_int(&vec!['2', '3']);
+        assert_eq!(left, right);
+        let left = 1123i64;
+        let right = convert_to_int(&vec!['1', '1', '2', '3']);
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn test_convert_to_float() {
+        let left = 1f64;
+        let right = convert_to_float(&vec!['1', '.', '0']);
+        assert_eq!(left, right);
+
+        let left = 10.123f64;
+        let right = convert_to_float(&vec!['1', '0', '.', '1', '2', '3']);
+        assert_eq!(left, right);
+
+        let left = 11.0f64;
+        let right = convert_to_float(&vec!['1', '1', '.']);
+        assert_eq!(left, right);
+    }
+
+    // lexer integrations test
+    const SPC: TokenType = TokenType::Trivia(TokenTrivia::Space);
 
     fn setup_lexer_test(code: &str) -> Vec<TokenType> {
         let mut l = Lexer::new(code);
@@ -368,8 +404,6 @@ mod tests {
             Err(_) => vec![],
         }
     }
-
-    const SPC: TokenType = TokenType::Trivia(TokenTrivia::Space);
 
     #[test]
     fn lexer_parse_let_binding() {
