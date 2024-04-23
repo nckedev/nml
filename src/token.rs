@@ -23,6 +23,7 @@ pub enum TokenType {
     Type,
     Ref,
     SelfRef,
+    Yied,
 
     If,
     Else,
