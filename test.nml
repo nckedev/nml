@@ -41,3 +41,14 @@ implement Add for TestStruct {
 	}
 }
 
+//tests
+
+mod tests
+
+@test
+@test_parameter(1, 2)
+@test_parameter(2, 3)
+let the_test = fn value expexted :: int -> int -> int {
+	assert_eq (value + 1) expected 
+}
+

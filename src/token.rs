@@ -19,11 +19,14 @@ pub enum TokenType {
     Let,
     Mut,
     Interface,
+    Variant,
+    Trait,
     Struct,
     Type,
     Ref,
     SelfRef,
     Yied,
+    Const,
 
     If,
     Else,
@@ -58,6 +61,7 @@ pub enum TokenType {
     Minus,
     Mul,
     Div,
+    Mod,
 
     //unary operators
     Not,
@@ -80,7 +84,11 @@ pub enum TokenTrivia {
     Space,
     EOL,
     EOF,
-    Newline,
+}
+
+pub enum Keyword {
+    IF,
+    LET,
 }
 
 #[derive(Debug)]

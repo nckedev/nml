@@ -1,6 +1,6 @@
 use crate::lexer::Lexer;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Pos {
     pub line: u32,
     pub start: u32,

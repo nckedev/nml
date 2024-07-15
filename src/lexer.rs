@@ -1,12 +1,14 @@
 use core::panic;
-use std::num::ParseIntError;
 
 use crate::pos::Pos;
+use crate::stream::Stream;
 use crate::token::Token;
 use crate::token::TokenTrivia;
 use crate::token::TokenType;
 
 pub struct Lexer {
+    // TODO: VecQue istället
+    buffer: Stream<char>,
     code: Vec<char>,
     current: u32,
     length: u32,
@@ -14,6 +16,7 @@ pub struct Lexer {
     pos: Pos,
 }
 
+#[derive(Debug)]
 pub struct LexerErr {
     message: String,
     pos: Pos,
@@ -33,12 +36,17 @@ impl Lexer {
         let chars: Vec<char> = code.chars().collect();
         let len = chars.len();
         Lexer {
-            code: chars,
+            code: chars.clone(),
+            buffer: Stream::from(chars),
             current: 0,
             length: len as u32,
             pos: Pos::new(1, 1, 1),
             max: len as u32 - 1,
         }
+    }
+
+    fn gen_token(&self, t: TokenType) -> Token {
+        Token::new(t, self.pos())
     }
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>, LexerErr> {
@@ -122,6 +130,8 @@ impl Lexer {
                         list.push(Token::new(TokenType::MethodAccessor, self.pos()));
                     }
                 }
+                '{' => list.push(Token::new(TokenType::OpenCurl, self.pos())),
+                '}' => list.push(Token::new(TokenType::CloseCurl, self.pos())),
                 //string and char
                 '"' => {}
                 '\'' => {}
@@ -129,10 +139,7 @@ impl Lexer {
                 '\n' => {
                     self.pos.line += 1;
                     self.pos.start = 1;
-                    list.push(Token::new(
-                        TokenType::Trivia(TokenTrivia::Newline),
-                        self.pos(),
-                    ));
+                    list.push(self.gen_token(TokenType::Trivia(TokenTrivia::EOL)));
                 }
                 '\t' => {
                     list.push(Token::new(TokenType::Trivia(TokenTrivia::Tab), self.pos()));
@@ -144,9 +151,13 @@ impl Lexer {
                     ));
                 }
 
-                //attribute
+                //attribute, @test
                 '@' => {
-                    todo!()
+                    //take until space or newline
+                    //Todo: attribute with parameters @test(arg1, arg2)
+                    let attr_arr = self.take_until(|x| x == ' ' || x == '\n', false);
+                    let str: String = attr_arr.into_iter().collect();
+                    list.push(Token::new(TokenType::Attribute(str), self.pos()));
                 }
                 _ => (),
             }
@@ -202,6 +213,7 @@ impl Lexer {
                     self.step(-1);
                     return TokenType::IntNumber(1);
                 }
+                '_' => {}
                 //'.' if found_dot => todo!(),
                 '0'..='9' => vec.push(ch),
                 _ => break,
@@ -344,8 +356,24 @@ fn match_litteral(str: &str) -> TokenType {
         "end" => TokenType::End,
         "for" => TokenType::For,
         "mut" => TokenType::Mut,
+        "ref" => TokenType::Ref,
         "interface" => TokenType::Interface,
+        "trait" => TokenType::Trait,
+        "variant" => TokenType::Variant,
+        "const" => TokenType::Const,
         _ => TokenType::Identifier(str.to_string()),
+    }
+}
+
+enum NmlExpr {
+    Binary,
+    Unary,
+    FunctionCall,
+}
+
+impl NmlExpr {
+    fn from_tokens(t: &Token) -> NmlExpr {
+        return NmlExpr::Binary;
     }
 }
 
@@ -363,7 +391,6 @@ mod tests {
         let nr = vec!['1', '0'];
         assert!(!is_valid_float(&nr));
     }
-
 
     #[test]
     fn test_convert_to_int() {
@@ -397,28 +424,45 @@ mod tests {
     // lexer integrations test
     const SPC: TokenType = TokenType::Trivia(TokenTrivia::Space);
 
-    fn setup_lexer_test(code: &str) -> Vec<TokenType> {
+    fn setup_lexer_test(code: &str, skip_whitespace: bool) -> Vec<TokenType> {
         let mut l = Lexer::new(code);
         match l.tokenize() {
-            Ok(value) => value.iter().map(|x| x.token_type.clone()).collect(),
+            Ok(value) => value
+                .iter()
+                .map(|x| x.token_type.clone())
+                .filter(|x| if skip_whitespace { *x != SPC } else { true })
+                .collect(),
             Err(_) => vec![],
         }
+    }
+
+    #[test]
+    fn test_number_format_int() {
+        use TokenType::*;
+        let left = setup_lexer_test("let a = 1_000_000", true);
+        let right = vec![Let, Identifier("a".to_string()), Assign, IntNumber(1000000)];
+        assert_eq!(left, right);
+    }
+
+    #[test]
+    fn test_number_format_float() {
+        use TokenType::*;
+        let left = setup_lexer_test("let a = 1_000_000.001", true);
+        let right = vec![
+            Let,
+            Identifier("a".to_string()),
+            Assign,
+            FloatNumber(1000000.001),
+        ];
+        assert_eq!(left, right);
     }
 
     #[test]
     fn lexer_parse_let_binding() {
         use TokenType::*;
 
-        let left = setup_lexer_test("let a = 1");
-        let right = vec![
-            Let,
-            SPC,
-            Identifier("a".to_string()),
-            SPC,
-            Assign,
-            SPC,
-            IntNumber(1),
-        ];
+        let left = setup_lexer_test("let a = 1", true);
+        let right = vec![Let, Identifier("a".to_string()), Assign, IntNumber(1)];
         assert_eq!(left, right);
     }
 
@@ -426,25 +470,35 @@ mod tests {
     fn lexer_parse_if_statement() {
         use TokenType::*;
 
-        let left = setup_lexer_test("if a >= b do a + b end");
+        let left = setup_lexer_test("if a >= b do a + b end", true);
         let right = vec![
             If,
-            SPC,
             Identifier("a".to_string()),
-            SPC,
             GtEq,
-            SPC,
             Identifier("b".to_string()),
-            SPC,
             Do,
-            SPC,
             Identifier("a".to_string()),
-            SPC,
             Plus,
-            SPC,
             Identifier("b".to_string()),
-            SPC,
             End,
+        ];
+        assert_eq!(left, right);
+    }
+    #[test]
+    fn lexer_parse_if_statement_curl() {
+        use TokenType::*;
+
+        let left = setup_lexer_test("if a >= b { a + b }", true);
+        let right = vec![
+            If,
+            Identifier("a".to_string()),
+            GtEq,
+            Identifier("b".to_string()),
+            OpenCurl,
+            Identifier("a".to_string()),
+            Plus,
+            Identifier("b".to_string()),
+            CloseCurl,
         ];
         assert_eq!(left, right);
     }
@@ -452,7 +506,7 @@ mod tests {
     fn lexer_parse_if_else_statement() {
         use TokenType::*;
 
-        let left = setup_lexer_test("if a >= b do a + b else a - b end");
+        let left = setup_lexer_test("if a >= b do a + b else a - b end", false);
         let right = vec![
             If,
             SPC,
@@ -487,7 +541,7 @@ mod tests {
     fn lexer_parse_range_operator() {
         use TokenType::*;
 
-        let left = setup_lexer_test("0..10");
+        let left = setup_lexer_test("0..10", false);
         let right = vec![IntNumber(1), Range(false), IntNumber(10)];
         assert_eq!(left, right);
     }
@@ -496,7 +550,7 @@ mod tests {
     fn lexer_parse_range_inclusive_operator() {
         use TokenType::*;
 
-        let left = setup_lexer_test("0..=10");
+        let left = setup_lexer_test("0..=10", false);
         let right = vec![IntNumber(1), Range(true), IntNumber(10)];
         assert_eq!(left, right);
     }
