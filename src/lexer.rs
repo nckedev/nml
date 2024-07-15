@@ -7,7 +7,6 @@ use crate::token::TokenTrivia;
 use crate::token::TokenType;
 
 pub struct Lexer {
-    // TODO: VecQue istället
     buffer: Stream<char>,
     code: Vec<char>,
     current: u32,
@@ -61,11 +60,11 @@ impl Lexer {
                     let str: String = lit_arr.into_iter().collect();
                     let token_type = match_litteral(&str);
 
-                    list.push(Token::new(token_type, self.pos()));
+                    list.push(self.gen_token(token_type));
                 }
                 '0'..='9' => {
                     let token_nr = self.take_number();
-                    list.push(Token::new(token_nr, self.pos()));
+                    list.push(self.gen_token(token_nr));
                     // let nr_arr = self.take_until(|x| !(is_number(x) || x == '.'), true);
                     // let mut mul = 1;
 
@@ -78,60 +77,60 @@ impl Lexer {
                     //         return a;
                     //     })
                     //     .sum();
-                    // list.push(Token::new(TokenType::IntNumber(nr), self.pos()));
+                    // list.push(self.gen_token(TokenType::IntNumber(nr))));
                 }
-                '_' => list.push(Token::new(TokenType::Discard, self.pos())),
+                '_' => list.push(self.gen_token(TokenType::Discard)),
                 '=' => {
                     if self.next_is('=') {
-                        list.push(Token::new(TokenType::Eq, self.pos()));
+                        list.push(self.gen_token(TokenType::Eq));
                     } else if self.next_is('>') {
-                        list.push(Token::new(TokenType::Lambda, self.pos()));
+                        list.push(self.gen_token(TokenType::Lambda));
                     } else {
-                        list.push(Token::new(TokenType::Assign, self.pos()));
+                        list.push(self.gen_token(TokenType::Assign));
                     }
                 }
                 '>' => {
                     if self.next_is('=') {
-                        list.push(Token::new(TokenType::GtEq, self.pos()));
+                        list.push(self.gen_token(TokenType::GtEq));
                     } else {
-                        list.push(Token::new(TokenType::Gt, self.pos()));
+                        list.push(self.gen_token(TokenType::Gt));
                     }
                 }
                 '<' => {
                     if self.next_is('=') {
-                        list.push(Token::new(TokenType::LtEq, self.pos()));
+                        list.push(self.gen_token(TokenType::LtEq));
                     } else {
-                        list.push(Token::new(TokenType::Lt, self.pos()));
+                        list.push(self.gen_token(TokenType::Lt));
                     }
                 }
                 '-' => {
-                    list.push(Token::new(TokenType::Minus, self.pos()));
+                    list.push(self.gen_token(TokenType::Minus));
                 }
                 '+' => {
-                    list.push(Token::new(TokenType::Plus, self.pos()));
+                    list.push(self.gen_token(TokenType::Plus));
                 }
                 '*' => {
-                    list.push(Token::new(TokenType::Mul, self.pos()));
+                    list.push(self.gen_token(TokenType::Mul));
                 }
                 '/' => {
-                    list.push(Token::new(TokenType::Div, self.pos()));
+                    list.push(self.gen_token(TokenType::Div));
                 }
                 '.' => {
                     if self.next_is('.') {
                         if self.next_is('=') {
                             // inclusive rage ..=
-                            list.push(Token::new(TokenType::Range(true), self.pos()));
+                            list.push(self.gen_token(TokenType::Range(true)));
                         } else {
                             // range ..
-                            list.push(Token::new(TokenType::Range(false), self.pos()));
+                            list.push(self.gen_token(TokenType::Range(false)));
                         }
                     } else {
                         // method accessor, or whatever its called
-                        list.push(Token::new(TokenType::MethodAccessor, self.pos()));
+                        list.push(self.gen_token(TokenType::MethodAccessor));
                     }
                 }
-                '{' => list.push(Token::new(TokenType::OpenCurl, self.pos())),
-                '}' => list.push(Token::new(TokenType::CloseCurl, self.pos())),
+                '{' => list.push(self.gen_token(TokenType::OpenCurl)),
+                '}' => list.push(self.gen_token(TokenType::CloseCurl)),
                 //string and char
                 '"' => {}
                 '\'' => {}
@@ -142,7 +141,7 @@ impl Lexer {
                     list.push(self.gen_token(TokenType::Trivia(TokenTrivia::EOL)));
                 }
                 '\t' => {
-                    list.push(Token::new(TokenType::Trivia(TokenTrivia::Tab), self.pos()));
+                    list.push(self.gen_token(TokenType::Trivia(TokenTrivia::Tab)));
                 }
                 ' ' => {
                     list.push(Token::new(
@@ -157,7 +156,7 @@ impl Lexer {
                     //Todo: attribute with parameters @test(arg1, arg2)
                     let attr_arr = self.take_until(|x| x == ' ' || x == '\n', false);
                     let str: String = attr_arr.into_iter().collect();
-                    list.push(Token::new(TokenType::Attribute(str), self.pos()));
+                    list.push(self.gen_token(TokenType::Attribute(str)));
                 }
                 _ => (),
             }
@@ -382,7 +381,7 @@ mod tests {
     use super::{convert_to_int, *};
 
     #[test]
-    fn test_is_float_is_true() {
+    fn test_is_valid_float() {
         let nr = "10.1".chars().collect();
         assert!(is_valid_float(&nr));
     }
