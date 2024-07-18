@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::scope::{Scope, ScopeGenerator};
-use crate::token::{Token, TokenTrivia, TokenType};
+use crate::token::{Token, TokenKind, TokenTrivia};
 
 pub struct Parser {
     tokens: VecDeque<Token>,
@@ -28,8 +28,8 @@ impl Parser {
         let t: Vec<Token> = tokens
             .into_iter()
             .filter(|x| {
-                x.token_type != TokenType::Trivia(TokenTrivia::Space)
-                    && x.token_type != TokenType::Trivia(TokenTrivia::Tab)
+                x.kind != TokenKind::Trivia(TokenTrivia::Space)
+                    && x.kind != TokenKind::Trivia(TokenTrivia::Tab)
             })
             .collect::<Vec<Token>>();
         Self {
@@ -75,13 +75,13 @@ impl Parser {
 
         self.tree.add(s);
 
-        self.print();
+        //self.print();
 
         let b = self.parse_expr(expect_token::any);
 
         //debug::print(&b);
 
-        Self::print_tree(&b);
+        //Self::print_tree(&b);
 
         // for t in self.tokens {
         //     let a = self.parse_stmt();
@@ -92,23 +92,23 @@ impl Parser {
     }
 
     fn parse_expr(&mut self, is_expected: fn(&Token) -> bool) -> Node {
-        let Some(t) = self.take(true) else {
+        let Some(token) = self.take(true) else {
             panic!("no token found")
         };
 
-        debug::print(&t);
+        debug::print(&token);
 
-        if !is_expected(&t) {
-            panic!("unexpected token {:?}", t);
+        if !is_expected(&token) {
+            panic!("unexpected token {:?}", token);
         }
 
-        let res = match t.token_type {
-            TokenType::Let => {
+        let res = match token.kind {
+            TokenKind::Let => {
                 if self.peek_expect(expect_token::identifier) {
                     let Some(ident) = self.take(true) else {
                         panic!("uknown expr")
                     };
-                    let TokenType::Identifier(name) = ident.token_type else {
+                    let TokenKind::Identifier(name) = ident.kind else {
                         panic!("uknown expr")
                     };
                     let _ = self.take_if(expect_token::assign);
@@ -122,7 +122,7 @@ impl Parser {
                     Node::EOF
                 }
             }
-            TokenType::IntNumber(x) => {
+            TokenKind::IntNumber(x) => {
                 println!("intnumber");
                 if self.peek_expect(expect_token::operator) {
                     let Some(op) = self.take(true) else {
@@ -134,7 +134,7 @@ impl Parser {
                             value: x.to_string(),
                         }
                         .boxed(),
-                        operator: Operator::from(op.token_type),
+                        operator: Operator::from(op.kind),
                         right: Box::new(self.parse_expr(expect_token::any)),
                     }
                 } else {
@@ -153,7 +153,7 @@ impl Parser {
     fn take(&mut self, skip_trivia: bool) -> Option<Token> {
         if skip_trivia {
             while let Some(t) = self.tokens.pop_front() {
-                let TokenType::Trivia(_) = t.token_type else {
+                let TokenKind::Trivia(_) = t.kind else {
                     return Some(t);
                 };
             }
@@ -193,7 +193,7 @@ impl Parser {
     }
 }
 
-fn expect(t: TokenType, n: TokenType) -> bool {
+fn expect(t: TokenKind, n: TokenKind) -> bool {
     t == n
 }
 
@@ -335,14 +335,14 @@ enum Operator {
     Mod,
 }
 
-impl From<TokenType> for Operator {
-    fn from(value: TokenType) -> Self {
+impl From<TokenKind> for Operator {
+    fn from(value: TokenKind) -> Self {
         match value {
-            TokenType::Plus => Operator::Plus,
-            TokenType::Minus => Operator::Minus,
-            TokenType::Mul => Operator::Mul,
-            TokenType::Div => Operator::Div,
-            TokenType::Mod => Operator::Mod,
+            TokenKind::Plus => Operator::Plus,
+            TokenKind::Minus => Operator::Minus,
+            TokenKind::Mul => Operator::Mul,
+            TokenKind::Div => Operator::Div,
+            TokenKind::Mod => Operator::Mod,
             _ => todo!(),
         }
     }
@@ -362,28 +362,28 @@ impl Display for Operator {
 
 mod expect_token {
     use crate::token::Token;
-    use crate::token::TokenType;
+    use crate::token::TokenKind;
 
     pub fn any(t: &Token) -> bool {
         true
     }
 
     pub fn const_expr(t: &Token) -> bool {
-        match t.token_type {
-            TokenType::IntNumber(..) | TokenType::FloatNumber(..) | TokenType::String(..) => true,
+        match t.kind {
+            TokenKind::IntNumber(..) | TokenKind::FloatNumber(..) | TokenKind::String(..) => true,
             _ => false,
         }
     }
 
     pub fn operator(t: &Token) -> bool {
-        match t.token_type {
-            TokenType::Plus | TokenType::Minus | TokenType::Mul | TokenType::Div => true,
+        match t.kind {
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Div => true,
             _ => false,
         }
     }
 
     pub fn identifier(t: &Token) -> bool {
-        if let TokenType::Identifier(_) = t.token_type {
+        if let TokenKind::Identifier(_) = t.kind {
             true
         } else {
             false
@@ -391,39 +391,27 @@ mod expect_token {
     }
 
     pub fn assign(t: &Token) -> bool {
-        match t.token_type {
-            TokenType::Assign => true,
+        match t.kind {
+            TokenKind::Assign => true,
             _ => false,
         }
     }
 
     #[cfg(test)]
     mod tests {
+        use crate::token::TokenSpan;
+
         use super::*;
 
         #[test]
         fn expect_identifier() {
-            let a = Token::new(
-                TokenType::Identifier("test".into()),
-                crate::pos::Pos {
-                    line: 0,
-                    start: 0,
-                    end: 0,
-                },
-            );
+            let a = Token::new(TokenKind::Identifier("test".into()), TokenSpan::empty());
 
             assert!(identifier(&a));
         }
         #[test]
         fn expect_not_identifier() {
-            let a = Token::new(
-                TokenType::Plus,
-                crate::pos::Pos {
-                    line: 0,
-                    start: 0,
-                    end: 0,
-                },
-            );
+            let a = Token::new(TokenKind::Plus, TokenSpan::empty());
 
             assert!(!identifier(&a));
         }

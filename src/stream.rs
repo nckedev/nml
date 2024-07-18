@@ -8,6 +8,7 @@ impl<T> Stream<T>
 where
     T: Copy,
 {
+    /// Returns the next value without moving forward forward in the stream
     pub fn peek(&self) -> Option<T> {
         if let Some(v) = self.buffer.get(0) {
             return Some(*v);
@@ -15,11 +16,31 @@ where
         None
     }
 
+    /// matches the next value in the stream
+    pub fn peek_match(&self, pred: T) -> bool
+    where
+        T: PartialEq,
+    {
+        match self.peek() {
+            Some(v) if v == pred => true,
+            _ => false,
+        }
+    }
+
+    /// peeks n steps ahead and returns the value without moving forward in the stream
     pub fn peek_n(&self, steps: usize) -> Option<T> {
         if let Some(v) = self.buffer.get(steps) {
             return Some(*v);
         }
         None
+    }
+    pub fn peek_n_expect(&self, steps: usize, pred: fn(&T) -> bool) -> bool {
+        if let Some(v) = self.buffer.get(steps) {
+            if pred(v) {
+                return true;
+            }
+        }
+        false
     }
 
     pub fn peek_expect(&self, pred: fn(&T) -> bool) -> bool {
@@ -31,11 +52,35 @@ where
         false
     }
 
+    /// peeks at the next element and steps forward if it matches,
+    /// returns true if a matching element was found
+    pub fn peek_and_step_if(&mut self, pred: T) -> bool
+    where
+        T: PartialEq,
+    {
+        match self.take_if(pred) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
+    /// takes the elemnt at the front and returns it
     pub fn take(&mut self) -> Option<T> {
         self.buffer.pop_front()
     }
 
-    pub fn take_if(&mut self, pred: fn(&T) -> bool) -> Option<T> {
+    pub fn take_if(&mut self, pred: T) -> Option<T>
+    where
+        T: PartialEq,
+    {
+        if let Some(v) = self.buffer.get(0) {
+            if *v == pred {
+                return self.buffer.pop_front();
+            }
+        }
+        None
+    }
+    pub fn take_if_fn(&mut self, pred: fn(&T) -> bool) -> Option<T> {
         if let Some(v) = self.buffer.get(0) {
             if pred(v) {
                 return self.buffer.pop_front();
@@ -44,20 +89,29 @@ where
         None
     }
 
-    pub fn take_until(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
+    pub fn take_until_iter(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
         StreamTakeIterator {
             buffer: &mut self.buffer,
             pred,
             invert_pred: true,
         }
     }
+    pub fn take_until(&mut self, pred: fn(&T) -> bool) -> Vec<T> {
+        self.take_until_iter(pred).collect()
+    }
 
-    pub fn take_while(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
+    /// takes item while the predicate is true
+    pub fn take_while_iter(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
         StreamTakeIterator {
             buffer: &mut self.buffer,
             pred,
             invert_pred: false,
         }
+    }
+
+    /// see [take_while_iter()]
+    pub fn take_while(&mut self, pred: fn(&T) -> bool) -> Vec<T> {
+        self.take_while_iter(pred).collect()
     }
 }
 
@@ -107,14 +161,14 @@ mod tests {
     #[test]
     fn take_until() {
         let mut s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        let t = s.take_until(|&x| x == 3).last();
+        let t = s.take_until_iter(|&x| x == 3).last();
         assert_eq!(Some(2), t);
     }
 
     #[test]
     fn take_while() {
         let mut s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        let t = s.take_while(|&x| x < 3).last();
+        let t = s.take_while_iter(|&x| x < 3).last();
         assert_eq!(Some(2), t);
     }
 
@@ -136,6 +190,11 @@ mod tests {
         let s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
         assert_eq!(Some(2), s.peek_n(1));
     }
+    #[test]
+    fn peek_n_expect() {
+        let s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(true, s.peek_n_expect(1, |x| *x == 2));
+    }
 
     #[test]
     fn take() {
@@ -148,8 +207,8 @@ mod tests {
     #[test]
     fn take_if() {
         let mut s = Stream::from(vec![1, 2]);
-        assert_eq!(None, s.take_if(|&x| x == 2));
+        assert_eq!(None, s.take_if_fn(|&x| x == 2));
         assert_eq!(Some(1), s.take());
-        assert_eq!(Some(2), s.take_if(|&x| x == 2));
+        assert_eq!(Some(2), s.take_if_fn(|&x| x == 2));
     }
 }

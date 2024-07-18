@@ -1,9 +1,9 @@
 #![allow(dead_code)]
 
-use crate::pos::Pos;
+use crate::source_char::SourceIndex;
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum TokenType {
+pub enum TokenKind {
     //litterals
     String(String),
     Char(u8),
@@ -53,7 +53,10 @@ pub enum TokenType {
     LtEq,
 
     Lambda,
-    Range(bool),
+    InclusiveRange,
+    ExclusiveRange,
+    OpenStartRange,
+    OpenEndRange,
     MethodAccessor,
 
     //binary operators
@@ -75,7 +78,32 @@ pub enum TokenType {
 
     //msc
     Trivia(TokenTrivia),
+    Error(TokenError),
     None,
+}
+
+impl TokenKind {
+    /// Returns `true` if the token kind is [`Error`].
+    ///
+    /// [`Error`]: TokenKind::Error
+    #[must_use]
+    pub fn is_error(&self) -> bool {
+        matches!(self, Self::Error(..))
+    }
+
+    /// Returns `true` if the token kind is [`Trivia`].
+    ///
+    /// [`Trivia`]: TokenKind::Trivia
+    #[must_use]
+    pub fn is_trivia(&self) -> bool {
+        matches!(self, Self::Trivia(..))
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum TokenError {
+    Uknown,
+    Unexpected,
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -86,22 +114,34 @@ pub enum TokenTrivia {
     EOF,
 }
 
-pub enum Keyword {
-    IF,
-    LET,
+/// TokenSpan
+#[derive(Debug)]
+pub struct TokenSpan {
+    pub start: SourceIndex,
+    pub end: SourceIndex,
 }
 
+impl TokenSpan {
+    pub fn empty() -> Self {
+        Self {
+            start: SourceIndex::emtpy(),
+            end: SourceIndex::emtpy(),
+        }
+    }
+}
+
+/// Token
 #[derive(Debug)]
 pub struct Token {
-    pub token_type: TokenType,
-    pub pos: Pos,
+    pub kind: TokenKind,
+    pub span: TokenSpan,
 }
 
 impl Token {
-    pub fn new(token_type: TokenType, pos: Pos) -> Self {
-        Token { token_type, pos }
+    pub fn new(kind: TokenKind, span: TokenSpan) -> Self {
+        Token { kind, span }
     }
     fn empty() -> Self {
-        Self::new(TokenType::None, Pos::zero())
+        Self::new(TokenKind::None, TokenSpan::empty())
     }
 }
