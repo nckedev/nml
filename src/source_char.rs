@@ -4,23 +4,6 @@ pub(crate) struct SourceChar {
     pub index: SourceIndex,
 }
 
-impl SourceChar {
-    pub fn new_target(ch: char, index: SourceIndex, target: SourceIndexTarget) -> Self {
-        match target {
-            SourceIndexTarget::NextCol => Self {
-                ch,
-                index: SourceIndex {
-                    row: index.row,
-                    col: index.col + 1,
-                },
-            },
-            SourceIndexTarget::NextRow => todo!(),
-            SourceIndexTarget::Any => todo!(),
-            SourceIndexTarget::AnyForward => todo!(),
-        }
-    }
-}
-
 impl PartialEq for SourceChar {
     fn eq(&self, other: &Self) -> bool {
         self.ch == other.ch
@@ -43,12 +26,6 @@ pub struct SourceIndex {
 }
 
 impl SourceIndex {
-    pub fn next_col(&self) -> Self {
-        Self {
-            row: self.row,
-            col: self.col + 1,
-        }
-    }
     pub fn emtpy() -> Self {
         Self { row: 0, col: 0 }
     }
@@ -62,13 +39,6 @@ impl PartialOrd for SourceIndex {
             return Some(self.row.cmp(&other.row));
         }
     }
-}
-
-pub(crate) enum SourceIndexTarget {
-    NextCol,
-    NextRow,
-    Any,
-    AnyForward,
 }
 
 #[cfg(test)]
