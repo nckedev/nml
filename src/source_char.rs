@@ -4,6 +4,36 @@ pub(crate) struct SourceChar {
     pub index: SourceIndex,
 }
 
+impl SourceChar {
+    pub fn is_number_special(&self) -> bool {
+        match self.ch {
+            'f' | 'i' | 'u' => true,
+            '_' => true,
+            '0'..='9' => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_alpha(&self) -> bool {
+        match self.ch {
+            'a'..='z' => true,
+            'A'..='Z' => true,
+            '_' => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_number(&self) -> bool {
+        match self.ch {
+            '0'..='9' => true,
+            _ => false,
+        }
+    }
+    pub fn is_alpha_or_number(&self) -> bool {
+        self.is_alpha() || self.is_number()
+    }
+}
+
 impl PartialEq for SourceChar {
     fn eq(&self, other: &Self) -> bool {
         self.ch == other.ch

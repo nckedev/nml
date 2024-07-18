@@ -3,7 +3,6 @@ use std::usize;
 
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
-use crate::source_char::SourceIndexTarget;
 use crate::stream::Stream;
 use crate::token::Token;
 use crate::token::TokenError::Unexpected;
@@ -19,12 +18,6 @@ pub struct Lexer {
 pub struct LexerErr {
     message: String,
     // TODO: add token span
-}
-
-impl LexerErr {
-    pub fn new(msg: String) -> Self {
-        LexerErr { message: msg }
-    }
 }
 
 impl Lexer {
@@ -66,19 +59,6 @@ impl Lexer {
         }
     }
 
-    fn gen_token(&self, t: TokenKind) -> Token {
-        Token::new(t, TokenSpan::empty())
-    }
-
-    fn gen_token_with_span(&self, kind: TokenKind, start: SourceIndex, end: SourceIndex) -> Token {
-        // TODO: find the end index from peeking instead of passing it
-        if let Some(_) = self.stream.peek() {}
-        Token {
-            kind,
-            span: TokenSpan { start, end },
-        }
-    }
-
     pub fn tokenize(&mut self) -> Result<Vec<Token>, LexerErr> {
         let mut tokens = vec![];
 
@@ -90,7 +70,7 @@ impl Lexer {
                 } => {
                     let litteral = self
                         .stream
-                        .take_while_iter(is_alpha_or_number)
+                        .take_while_iter(|x| x.is_alpha_or_number())
                         .map(|x| x.ch)
                         .collect::<String>();
 
@@ -241,31 +221,6 @@ impl Lexer {
     }
 }
 
-fn is_number_special(sc: &SourceChar) -> bool {
-    match sc.ch {
-        'f' | 'i' | 'u' => true,
-        '_' => true,
-        '0'..='9' => true,
-        _ => false,
-    }
-}
-
-fn is_alpha(c: &SourceChar) -> bool {
-    match c.ch {
-        'a'..='z' => true,
-        'A'..='Z' => true,
-        '_' => true,
-        _ => false,
-    }
-}
-
-fn is_number(c: &SourceChar) -> bool {
-    match c.ch {
-        '0'..='9' => true,
-        _ => false,
-    }
-}
-
 fn is_valid_float(nr: &Vec<char>) -> bool {
     let mut count = 0;
     for x in nr {
@@ -301,8 +256,8 @@ fn is_valid_int(nr: &Vec<SourceChar>) -> bool {
     //if the last char is an i all other have to be number
 
     match strip_spacer(nr).as_slice() {
-        [h @ .., t] if h.iter().all(is_number) && t.ch == 'i' => true,
-        [h @ ..] if h.iter().all(is_number) => true,
+        [h @ .., t] if h.iter().all(|x| x.is_number()) && t.ch == 'i' => true,
+        [h @ ..] if h.iter().all(|x| x.is_number()) => true,
         _ => false,
     }
 }
@@ -312,10 +267,6 @@ fn strip_spacer(nr: &Vec<SourceChar>) -> Vec<SourceChar> {
         .map(|x| *x)
         .filter(|x| x.ch != '_')
         .collect::<Vec<SourceChar>>()
-}
-
-fn is_alpha_or_number(c: &SourceChar) -> bool {
-    is_alpha(c) || is_number(c)
 }
 
 fn is_trivia(c: char) -> bool {
