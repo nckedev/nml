@@ -122,8 +122,8 @@ impl Parser {
                     Node::EOF
                 }
             }
-            TokenKind::IntNumber(x) => {
-                println!("intnumber");
+            TokenKind::Number(x) => {
+                // TODO: convert, check type etc.
                 if self.peek_expect(expect_token::operator) {
                     let Some(op) = self.take(true) else {
                         panic!("operator???")
@@ -131,7 +131,7 @@ impl Parser {
                     Node::BinaryExpr {
                         left: Node::ConstExpr {
                             scope: self.id_generator.next(),
-                            value: x.to_string(),
+                            value: x.value,
                         }
                         .boxed(),
                         operator: Operator::from(op.kind),
@@ -140,7 +140,7 @@ impl Parser {
                 } else {
                     Node::ConstExpr {
                         scope: self.id_generator.next(),
-                        value: x.to_string(),
+                        value: x.value,
                     }
                 }
             }
@@ -259,17 +259,9 @@ impl Display for Node {
             Node::MethodCall => todo!(),
             Node::BlockStmt => todo!(),
             Node::ModuleDeclr(_) => todo!(),
-            Node::VariableDeclr {
-                scope,
-                ident,
-                Value,
-            } => todo!(),
-            Node::ConstExpr { scope, value } => todo!(),
-            Node::BinaryExpr {
-                left,
-                operator,
-                right,
-            } => todo!(),
+            Node::VariableDeclr { .. } => todo!(),
+            Node::ConstExpr { .. } => todo!(),
+            Node::BinaryExpr { .. } => todo!(),
             Node::UnaryExpr => todo!(),
             Node::EOF => todo!(),
         }
@@ -370,7 +362,7 @@ mod expect_token {
 
     pub fn const_expr(t: &Token) -> bool {
         match t.kind {
-            TokenKind::IntNumber(..) | TokenKind::FloatNumber(..) | TokenKind::String(..) => true,
+            TokenKind::Number(..) | TokenKind::String(..) => true,
             _ => false,
         }
     }

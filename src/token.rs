@@ -7,9 +7,10 @@ pub enum TokenKind {
     //litterals
     String(String),
     Char(u8),
-    IntNumber(i64),
-    FloatNumber(f64),
-    Nan(String),
+    Number(NumberToken),
+    // IntLit(i64),
+    // UIntLit(String, Option<String>),
+    // FloatLit(f64),
     Identifier(String),
     Litteral,
     Attribute(String),
@@ -79,7 +80,7 @@ pub enum TokenKind {
     //msc
     Trivia(TokenTrivia),
     Error(TokenError),
-    None,
+    Empty,
 }
 
 impl TokenKind {
@@ -98,6 +99,13 @@ impl TokenKind {
     pub fn is_trivia(&self) -> bool {
         matches!(self, Self::Trivia(..))
     }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct NumberToken {
+    pub value: String,
+    pub prefix: Option<String>,
+    pub suffix: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -142,6 +150,6 @@ impl Token {
         Token { kind, span }
     }
     fn empty() -> Self {
-        Self::new(TokenKind::None, TokenSpan::empty())
+        Self::new(TokenKind::Empty, TokenSpan::empty())
     }
 }

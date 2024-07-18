@@ -4,6 +4,7 @@ use std::usize;
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
 use crate::stream::Stream;
+use crate::token::NumberToken;
 use crate::token::Token;
 use crate::token::TokenError::Unexpected;
 use crate::token::TokenKind;
@@ -66,7 +67,7 @@ impl Lexer {
             let token_kind = match v {
                 SourceChar {
                     ch: 'a'..='z' | 'A'..='Z',
-                    index: _start,
+                    ..
                 } => {
                     let litteral = self
                         .stream
@@ -87,8 +88,8 @@ impl Lexer {
                     let token_nr = self.take_number(&v);
                     token_nr
                 }
-                SourceChar { ch: '_', index: _ } => TokenKind::Discard,
-                SourceChar { ch: '=', index: _ } => {
+                SourceChar { ch: '_', .. } => TokenKind::Discard,
+                SourceChar { ch: '=', .. } => {
                     if self.stream.peek_and_step_if(SourceChar::from('=')) {
                         TokenKind::Eq
                     } else if self.stream.peek_and_step_if(SourceChar::from('>')) {
@@ -97,25 +98,24 @@ impl Lexer {
                         TokenKind::Assign
                     }
                 }
-                SourceChar { ch: '>', index: _ } => {
-                    if self.stream.peek_and_step_if(SourceChar::from('=')) {
-                        TokenKind::GtEq
-                    } else {
-                        TokenKind::Gt
+                SourceChar { ch: '>', .. } => {
+                    match self.stream.peek_and_step_if(SourceChar::from('=')) {
+                        true => TokenKind::GtEq,
+                        false => TokenKind::Gt,
                     }
                 }
-                SourceChar { ch: '<', index: _ } => {
+                SourceChar { ch: '<', .. } => {
                     match self.stream.peek_and_step_if(SourceChar::from('=')) {
                         true => TokenKind::LtEq,
                         false => TokenKind::Lt,
                     }
                 }
-                SourceChar { ch: '-', index: _ } => TokenKind::Minus,
-                SourceChar { ch: '+', index: _ } => TokenKind::Plus,
-                SourceChar { ch: '*', index: _ } => TokenKind::Mul,
-                SourceChar { ch: '/', index: _ } => TokenKind::Div,
+                SourceChar { ch: '-', .. } => TokenKind::Minus,
+                SourceChar { ch: '+', .. } => TokenKind::Plus,
+                SourceChar { ch: '*', .. } => TokenKind::Mul,
+                SourceChar { ch: '/', .. } => TokenKind::Div,
                 // TODO: should a float be able to start with a . ie .1 == 0.1
-                SourceChar { ch: '.', index: _ } => {
+                SourceChar { ch: '.', .. } => {
                     if self.stream.peek_and_step_if(SourceChar::from('.')) {
                         if self.stream.peek_and_step_if(SourceChar::from('=')) {
                             // inclusive rage ..=
@@ -129,18 +129,20 @@ impl Lexer {
                         TokenKind::MethodAccessor
                     }
                 }
-                SourceChar { ch: '{', index: _ } => TokenKind::OpenCurl,
-                SourceChar { ch: '}', index: _ } => TokenKind::CloseCurl,
+                SourceChar { ch: '{', .. } => TokenKind::OpenCurl,
+                SourceChar { ch: '}', .. } => TokenKind::CloseCurl,
+                SourceChar { ch: '(', .. } => TokenKind::OpenParen,
+                SourceChar { ch: ')', .. } => TokenKind::CloseParen,
                 //string and char
-                SourceChar { ch: '"', index: _ } => TokenKind::Error(Unexpected),
-                SourceChar { ch: '\'', index: _ } => TokenKind::Error(Unexpected),
+                SourceChar { ch: '"', .. } => TokenKind::Error(Unexpected),
+                SourceChar { ch: '\'', .. } => TokenKind::Error(Unexpected),
                 //whitespace
-                SourceChar { ch: '\n', index: _ } => TokenKind::Trivia(TokenTrivia::EOL),
-                SourceChar { ch: '\t', index: _ } => TokenKind::Trivia(TokenTrivia::Tab),
-                SourceChar { ch: ' ', index: _ } => TokenKind::Trivia(TokenTrivia::Space),
+                SourceChar { ch: '\n', .. } => TokenKind::Trivia(TokenTrivia::EOL),
+                SourceChar { ch: '\t', .. } => TokenKind::Trivia(TokenTrivia::Tab),
+                SourceChar { ch: ' ', .. } => TokenKind::Trivia(TokenTrivia::Space),
 
                 //attribute, @test
-                SourceChar { ch: '@', index: _ } => {
+                SourceChar { ch: '@', .. } => {
                     //take until space or newline
                     //Todo: attribute with parameters @test(arg1, arg2)
                     let attr_arr = self.stream.take_until(|x| x.ch == ' ' || x.ch == '\n');
@@ -167,37 +169,44 @@ impl Lexer {
         }
         Ok(tokens)
     }
-
+    /// Returs an number (int or float) from the stream and advances
+    ///
+    /// cases
+    /// ```
+    /// 1..3 => range
+    /// 1. => float
+    /// 1f => float
+    /// 1.f => float
+    /// 1 => int
+    /// 1i => int
+    /// 1u => uint
+    /// ```
     fn take_number(&mut self, sc: &SourceChar) -> TokenKind {
-        // 1..3 => range
-        // 1. => float
-        // 1f => float
-        // 1.f => float
-        // 1 => int
-        // 1i => int
-        // 1u => uint
-
-        let mut nr: Vec<SourceChar> = vec![];
-        let mut is_float = false;
+        let mut number_buf: Vec<SourceChar> = vec![];
+        let mut suffix_buf: Vec<SourceChar> = vec![];
+        let mut has_suffix = false;
 
         // push the first char that has already been taken by the main loop
-        nr.push(sc.clone());
+        number_buf.push(sc.clone());
 
         while let Some(v) = self.stream.peek() {
             match v {
-                SourceChar { ch: 'f', index: _ } => {
-                    is_float = true;
-                    self.stream.take();
-                    break;
+                SourceChar {
+                    ch: 'f' | 'i' | 'u',
+                    ..
+                } => {
+                    if let Some(t) = self.stream.take() {
+                        suffix_buf.push(t);
+                        has_suffix = true;
+                    }
                 }
-                SourceChar { ch: '.', index: _ } => {
+                SourceChar { ch: '.', .. } => {
                     // if there is two dots in a row it is a range operator
                     // so return what we have got so far as a IntNumber
                     if self.stream.peek_n_expect(1, |x| x.ch == '.') {
                         break;
                     }
-                    is_float = true;
-                    nr.push(v);
+                    number_buf.push(v);
                     self.stream.take();
                 }
                 SourceChar { ch: '_', index: _ } => {
@@ -206,18 +215,28 @@ impl Lexer {
                 SourceChar {
                     ch: '0'..='9',
                     index: _,
-                } => {
-                    nr.push(v);
+                } if has_suffix == false => {
+                    number_buf.push(v);
                     self.stream.take();
                 }
+                SourceChar {
+                    ch: 'a'..='z' | 'A'..='Z' | '0'..='9',
+                    ..
+                } if has_suffix => suffix_buf.push(v),
                 _ => break,
             };
         }
 
-        match is_float {
-            true => TokenKind::FloatNumber(convert_to_float(&nr)),
-            false => TokenKind::IntNumber(convert_to_int(&nr)),
-        }
+        let suffix: Option<String> = if suffix_buf.len() > 0 {
+            Some(suffix_buf.iter().map(|x| x.ch).collect::<String>())
+        } else {
+            None
+        };
+        TokenKind::Number(NumberToken {
+            value: number_buf.iter().map(|x| x.ch).collect(),
+            prefix: None,
+            suffix,
+        })
     }
 }
 
@@ -361,7 +380,7 @@ mod lexer_tests {
     // lexer integrations test
     const SPC: TokenKind = TokenKind::Trivia(TokenTrivia::Space);
 
-    fn setup_lexer_test(code: &str, skip_whitespace: bool) -> Vec<TokenKind> {
+    fn tokenize_filter_whitespace(code: &str, skip_whitespace: bool) -> Vec<TokenKind> {
         let mut l = Lexer::new(code);
         match l.tokenize() {
             Ok(value) => value
@@ -373,23 +392,37 @@ mod lexer_tests {
         }
     }
 
+    /// retruns a number token without prefix or suffix from griven str
+    fn number_token_from_str(str: &str) -> TokenKind {
+        TokenKind::Number(NumberToken {
+            value: str.to_string(),
+            prefix: None,
+            suffix: None,
+        })
+    }
+
     #[test]
     fn test_number_format_int() {
         use TokenKind::*;
-        let left = setup_lexer_test("let a = 1_000_000", true);
-        let right = vec![Let, Identifier("a".to_string()), Assign, IntNumber(1000000)];
-        assert_eq!(left, right);
+        let exp = vec![
+            Let,
+            Identifier("a".to_string()),
+            Assign,
+            number_token_from_str("1000000"),
+        ];
+        let res = tokenize_filter_whitespace("let a = 1_000_000", true);
+        assert_eq!(exp, res);
     }
 
     #[test]
     fn test_number_format_float() {
         use TokenKind::*;
-        let left = setup_lexer_test("let a = 1_000_000.001", true);
+        let left = tokenize_filter_whitespace("let a = 1_000_000.001", true);
         let right = vec![
             Let,
             Identifier("a".to_string()),
             Assign,
-            FloatNumber(1000000.001),
+            number_token_from_str("1000000.001"),
         ];
         assert_eq!(left, right);
     }
@@ -398,16 +431,26 @@ mod lexer_tests {
     fn lexer_parse_let_binding() {
         use TokenKind::*;
 
-        let left = setup_lexer_test("let a = 1", true);
-        let right = vec![Let, Identifier("a".to_string()), Assign, IntNumber(1)];
-        assert_eq!(left, right);
+        let exp = vec![
+            Let,
+            Identifier("a".to_string()),
+            Assign,
+            Number(NumberToken {
+                value: "1".to_string(),
+                prefix: None,
+                suffix: None,
+            }),
+        ];
+
+        let res = tokenize_filter_whitespace("let a = 1", true);
+        assert_eq!(exp, res);
     }
 
     #[test]
     fn lexer_parse_if_statement() {
         use TokenKind::*;
 
-        let left = setup_lexer_test("if a >= b do a + b end", true);
+        let left = tokenize_filter_whitespace("if a >= b do a + b end", true);
         let right = vec![
             If,
             Identifier("a".to_string()),
@@ -425,7 +468,7 @@ mod lexer_tests {
     fn lexer_parse_if_statement_curl() {
         use TokenKind::*;
 
-        let left = setup_lexer_test("if a >= b { a + b }", true);
+        let left = tokenize_filter_whitespace("if a >= b { a + b }", true);
         let right = vec![
             If,
             Identifier("a".to_string()),
@@ -443,7 +486,7 @@ mod lexer_tests {
     fn lexer_parse_if_else_statement() {
         use TokenKind::*;
 
-        let left = setup_lexer_test("if a >= b do a + b else a - b end", false);
+        let left = tokenize_filter_whitespace("if a >= b do a + b else a - b end", false);
         let right = vec![
             If,
             SPC,
@@ -478,8 +521,12 @@ mod lexer_tests {
     fn lexer_parse_range_operator() {
         use TokenKind::*;
 
-        let left = setup_lexer_test("0..10", false);
-        let right = vec![IntNumber(0), ExclusiveRange, IntNumber(10)];
+        let left = tokenize_filter_whitespace("0..10", false);
+        let right = vec![
+            number_token_from_str("0"),
+            ExclusiveRange,
+            number_token_from_str("10"),
+        ];
         assert_eq!(left, right);
     }
 
@@ -487,8 +534,40 @@ mod lexer_tests {
     fn lexer_parse_range_inclusive_operator() {
         use TokenKind::*;
 
-        let left = setup_lexer_test("0..=10", false);
-        let right = vec![IntNumber(0), InclusiveRange, IntNumber(10)];
+        let left = tokenize_filter_whitespace("0..=10", false);
+        let right = vec![
+            number_token_from_str("0"),
+            InclusiveRange,
+            number_token_from_str("10"),
+        ];
         assert_eq!(left, right);
+    }
+
+    #[test]
+    fn lex_number_with_suffix() {
+        let exp = vec![TokenKind::Number(NumberToken {
+            value: "10".to_string(),
+            prefix: None,
+            suffix: Some("f".to_string()),
+        })];
+
+        let res = tokenize_filter_whitespace("10f", true);
+        assert_eq!(exp, res)
+    }
+
+    #[test]
+    fn lex_number_with_suffix_next_to_other_char() {
+        let exp = vec![
+            TokenKind::OpenParen,
+            TokenKind::Number(NumberToken {
+                value: "10".to_string(),
+                prefix: None,
+                suffix: Some("f".to_string()),
+            }),
+            TokenKind::CloseParen,
+        ];
+
+        let res = tokenize_filter_whitespace("(10f)", true);
+        assert_eq!(exp, res)
     }
 }
