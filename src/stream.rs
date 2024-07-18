@@ -64,6 +64,13 @@ where
         }
     }
 
+    pub fn peek_and_step_if_fn(&mut self, pred: fn(&T) -> bool) -> bool {
+        match self.take_if_fn(pred) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
     /// takes the elemnt at the front and returns it
     pub fn take(&mut self) -> Option<T> {
         self.buffer.pop_front()

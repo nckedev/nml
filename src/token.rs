@@ -36,6 +36,10 @@ pub enum TokenKind {
     For,
     In,
 
+    //arrows
+    Arrow,
+    FatArrow,
+
     //one char
     OpenParen,
     CloseParen,
