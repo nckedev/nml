@@ -2,6 +2,8 @@ use std::collections::VecDeque;
 
 pub struct Stream<T> {
     buffer: VecDeque<T>,
+    pub prev: Option<T>,
+    pub curr: Option<T>,
 }
 
 impl<T> Stream<T>
@@ -16,17 +18,6 @@ where
         None
     }
 
-    /// matches the next value in the stream
-    pub fn peek_match(&self, pred: T) -> bool
-    where
-        T: PartialEq,
-    {
-        match self.peek() {
-            Some(v) if v == pred => true,
-            _ => false,
-        }
-    }
-
     /// peeks n steps ahead and returns the value without moving forward in the stream
     pub fn peek_n(&self, steps: usize) -> Option<T> {
         if let Some(v) = self.buffer.get(steps) {
@@ -34,8 +25,9 @@ where
         }
         None
     }
-    pub fn peek_n_expect(&self, steps: usize, pred: fn(&T) -> bool) -> bool {
-        if let Some(v) = self.buffer.get(steps) {
+
+    pub fn peek_expect(&self, pred: fn(&T) -> bool) -> bool {
+        if let Some(v) = self.buffer.get(0) {
             if pred(v) {
                 return true;
             }
@@ -43,8 +35,8 @@ where
         false
     }
 
-    pub fn peek_expect(&self, pred: fn(&T) -> bool) -> bool {
-        if let Some(v) = self.buffer.get(0) {
+    pub fn peek_n_expect(&self, steps: usize, pred: fn(&T) -> bool) -> bool {
+        if let Some(v) = self.buffer.get(steps) {
             if pred(v) {
                 return true;
             }
@@ -73,7 +65,10 @@ where
 
     /// takes the elemnt at the front and returns it
     pub fn take(&mut self) -> Option<T> {
-        self.buffer.pop_front()
+        let v = self.buffer.pop_front();
+        self.prev = self.curr;
+        self.curr = v;
+        v
     }
 
     pub fn take_if(&mut self, pred: T) -> Option<T>
@@ -82,7 +77,7 @@ where
     {
         if let Some(v) = self.buffer.get(0) {
             if *v == pred {
-                return self.buffer.pop_front();
+                return self.take();
             }
         }
         None
@@ -90,7 +85,7 @@ where
     pub fn take_if_fn(&mut self, pred: fn(&T) -> bool) -> Option<T> {
         if let Some(v) = self.buffer.get(0) {
             if pred(v) {
-                return self.buffer.pop_front();
+                return self.take();
             }
         }
         None
@@ -126,6 +121,8 @@ impl<T> From<Vec<T>> for Stream<T> {
     fn from(value: Vec<T>) -> Self {
         Self {
             buffer: VecDeque::from(value),
+            prev: None,
+            curr: None,
         }
     }
 }
@@ -139,6 +136,7 @@ struct StreamTakeIterator<'a, T> {
 impl<T> Iterator for StreamTakeIterator<'_, T> {
     type Item = T;
 
+    // TODO: curr and prev for iterator, how?
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(x) = self.buffer.get(0) {
             if self.invert_pred {

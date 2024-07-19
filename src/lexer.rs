@@ -1,4 +1,3 @@
-use core::panic;
 use std::usize;
 
 use crate::source_char::SourceChar;
@@ -87,11 +86,7 @@ impl Lexer {
                 SourceChar { ch: '_', .. } => TokenKind::Discard,
                 // = or == or =>
                 SourceChar { ch: '=', .. } => {
-                    if self
-                        .stream
-                        .peek_and_step_if_fn(|x| SourceChar::test(x, 's'))
-                    {
-                        //if self.stream.peek_and_step_if(SourceChar::from('=')) {
+                    if self.stream.peek_and_step_if(SourceChar::from('=')) {
                         TokenKind::Eq
                     } else if self.stream.peek_and_step_if(SourceChar::from('>')) {
                         TokenKind::Lambda
@@ -159,6 +154,7 @@ impl Lexer {
                 _ => TokenKind::Error(Unexpected),
             };
 
+            //get the end index by looking at the start index for the next SourceChar
             let end_index = if let Some(t) = self.stream.peek() {
                 t.index
             } else {
@@ -174,20 +170,20 @@ impl Lexer {
             };
             tokens.push(token);
         }
+
+        //the last entry will not have a correct span
+        let last_index = tokens.len() - 1;
+        if let Some(t) = tokens.get_mut(last_index) {
+            println!("{:#?}", t);
+            t.span.end = SourceIndex {
+                row: 0,
+                col: last_index,
+            }
+        }
         Ok(tokens)
     }
+
     /// Returs an number (int or float) from the stream and advances
-    ///
-    /// cases
-    /// ```
-    /// 1..3 => range
-    /// 1. => float
-    /// 1f => float
-    /// 1.f => float
-    /// 1 => int
-    /// 1i => int
-    /// 1u => uint
-    /// ```
     fn take_number(&mut self, sc: &SourceChar) -> TokenKind {
         let mut number_buf: Vec<SourceChar> = vec![];
         let mut suffix_buf: Vec<SourceChar> = vec![];
@@ -430,7 +426,7 @@ mod lexer_tests {
     fn lexer_parse_range_operator() {
         use TokenKind::*;
 
-        let left = tokenize_filter_whitespace("0..10", false);
+        let left = tokenize_filter_whitespace("0..10", true);
         let right = vec![
             number_token_from_str("0", None),
             ExclusiveRange,
@@ -443,7 +439,7 @@ mod lexer_tests {
     fn lexer_parse_range_inclusive_operator() {
         use TokenKind::*;
 
-        let left = tokenize_filter_whitespace("0..=10", false);
+        let left = tokenize_filter_whitespace("0   ..= 10", true);
         let right = vec![
             number_token_from_str("0", None),
             InclusiveRange,
