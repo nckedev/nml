@@ -13,14 +13,14 @@ pub enum TokenKind {
     // FloatLit(f64),
     Identifier(String),
     Litteral,
-    Attribute(String),
     Discard,
 
     //keywords
     Let,
     Mut,
     Interface,
-    Variant,
+    Variant, // or enum??
+    Attribute,
     Trait,
     Struct,
     Type,
@@ -28,6 +28,7 @@ pub enum TokenKind {
     SelfRef,
     Yied,
     Const,
+    Function,
 
     If,
     Else,
@@ -35,6 +36,9 @@ pub enum TokenKind {
     Do,
     For,
     In,
+
+    Try,
+    Guard,
 
     //arrows
     Arrow,
@@ -81,6 +85,8 @@ pub enum TokenKind {
     And,
     Or,
 
+    AtMarker,
+
     //msc
     Trivia(TokenTrivia),
     Error(TokenError),
@@ -115,7 +121,7 @@ pub struct NumberToken {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenError {
     Uknown,
-    Unexpected,
+    Unexpected(char),
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]

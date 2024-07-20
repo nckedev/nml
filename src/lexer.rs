@@ -2,6 +2,7 @@ use std::usize;
 
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
+use crate::stream;
 use crate::stream::Stream;
 use crate::token::NumberToken;
 use crate::token::Token;
@@ -136,8 +137,8 @@ impl Lexer {
                 SourceChar { ch: '(', .. } => TokenKind::OpenParen,
                 SourceChar { ch: ')', .. } => TokenKind::CloseParen,
                 //string and char
-                SourceChar { ch: '"', .. } => TokenKind::Error(Unexpected),
-                SourceChar { ch: '\'', .. } => TokenKind::Error(Unexpected),
+                SourceChar { ch: '"', .. } => TokenKind::Error(Unexpected(v.ch)),
+                SourceChar { ch: '\'', .. } => TokenKind::Error(Unexpected(v.ch)),
                 //whitespace
                 SourceChar { ch: '\n', .. } => TokenKind::Trivia(TokenTrivia::EOL),
                 SourceChar { ch: '\t', .. } => TokenKind::Trivia(TokenTrivia::Tab),
@@ -145,13 +146,19 @@ impl Lexer {
 
                 //attribute, @test
                 SourceChar { ch: '@', .. } => {
-                    //take until space or newline
-                    //Todo: attribute with parameters @test(arg1, arg2)
-                    let attr_arr = self.stream.take_until(|x| x.ch == ' ' || x.ch == '\n');
-                    let str: String = attr_arr.into_iter().map(|x| x.ch).collect();
-                    TokenKind::Attribute(str)
+                    if self.stream.peek_expect(|x| x.is_alpha()) {
+                        TokenKind::AtMarker
+                    } else {
+                        TokenKind::Error(Unexpected(v.ch))
+                    }
+
+                    // //take until space or newline
+                    // //Todo: attribute with parameters @test(arg1, arg2)
+                    // let attr_arr = self.stream.take_until(|x| x.ch == ' ' || x.ch == '\n');
+                    // let str: String = attr_arr.into_iter().map(|x| x.ch).collect();
+                    // TokenKind::Attribute(str)
                 }
-                _ => TokenKind::Error(Unexpected),
+                _ => TokenKind::Error(Unexpected(v.ch)),
             };
 
             //get the end index by looking at the start index for the next SourceChar
@@ -267,6 +274,7 @@ fn match_litteral(str: &str) -> TokenKind {
         "for" => TokenKind::For,
         "mut" => TokenKind::Mut,
         "ref" => TokenKind::Ref,
+        "fn" => TokenKind::Function,
         "interface" => TokenKind::Interface,
         "trait" => TokenKind::Trait,
         "variant" => TokenKind::Variant,
@@ -331,7 +339,7 @@ mod lexer_tests {
     }
 
     #[test]
-    fn lexer_parse_let_binding() {
+    fn let_binding() {
         use TokenKind::*;
 
         let exp = vec![
@@ -350,7 +358,7 @@ mod lexer_tests {
     }
 
     #[test]
-    fn lexer_parse_if_statement() {
+    fn if_statement() {
         use TokenKind::*;
 
         let left = tokenize_filter_whitespace("if a >= b do a + b end", true);
@@ -369,7 +377,7 @@ mod lexer_tests {
     }
 
     #[test]
-    fn lexer_parse_if_statement_curl() {
+    fn if_statement_curl() {
         use TokenKind::*;
 
         let left = tokenize_filter_whitespace("if a >= b { a + b }", true);
@@ -388,42 +396,30 @@ mod lexer_tests {
     }
 
     #[test]
-    fn lexer_parse_if_else_statement() {
+    fn if_else_statement() {
         use TokenKind::*;
 
-        let left = tokenize_filter_whitespace("if a >= b do a + b else a - b end", false);
+        let left = tokenize_filter_whitespace("if a >= b do a + b else a - b end", true);
         let right = vec![
             If,
-            SPC,
             Identifier("a".to_string()),
-            SPC,
             GtEq,
-            SPC,
             Identifier("b".to_string()),
-            SPC,
             Do,
-            SPC,
             Identifier("a".to_string()),
-            SPC,
             Plus,
-            SPC,
             Identifier("b".to_string()),
-            SPC,
             Else,
-            SPC,
             Identifier("a".to_string()),
-            SPC,
             Minus,
-            SPC,
             Identifier("b".to_string()),
-            SPC,
             End,
         ];
         assert_eq!(left, right);
     }
 
     #[test]
-    fn lexer_parse_range_operator() {
+    fn range_operator() {
         use TokenKind::*;
 
         let left = tokenize_filter_whitespace("0..10", true);
@@ -436,7 +432,7 @@ mod lexer_tests {
     }
 
     #[test]
-    fn lexer_parse_range_inclusive_operator() {
+    fn range_inclusive_operator() {
         use TokenKind::*;
 
         let left = tokenize_filter_whitespace("0   ..= 10", true);
@@ -446,5 +442,20 @@ mod lexer_tests {
             number_token_from_str("10", None),
         ];
         assert_eq!(left, right);
+    }
+
+    #[test]
+    fn attribute() {
+        use TokenKind::*;
+
+        let actual = tokenize_filter_whitespace("@test fn testFunc", true);
+        let expected = vec![
+            AtMarker,
+            Identifier("test".to_string()),
+            Function,
+            Identifier("testFunc".to_string()),
+        ];
+
+        assert_eq!(actual, expected);
     }
 }
