@@ -1,15 +1,18 @@
-use std::{
-    collections::{vec_deque, VecDeque},
-    fmt::Display,
+use std::fmt::Display;
+
+use crate::{
+    diagnostics::DiagEntry,
+    scope::{Scope, ScopeGenerator},
+};
+use crate::{
+    stream::Stream,
+    token::{Token, TokenKind, TokenTrivia},
 };
 
-use crate::scope::{Scope, ScopeGenerator};
-use crate::token::{Token, TokenKind, TokenTrivia};
-
 pub struct Parser {
-    tokens: VecDeque<Token>,
-    current: usize,
+    stream: Stream<Token>,
     tree: AST,
+    diagnostics: Vec<DiagEntry>,
     id_generator: ScopeGenerator,
 }
 
@@ -33,22 +36,22 @@ impl Parser {
             })
             .collect::<Vec<Token>>();
         Self {
-            tokens: VecDeque::from(t),
-            current: 0,
+            stream: Stream::from(t),
             tree: AST::new(),
+            diagnostics: vec![],
             id_generator: ScopeGenerator::new(),
         }
     }
 
-    fn print(&self) {
-        for x in &self.tokens {
-            debug::print(&x);
-        }
-    }
+    // fn print(&self) {
+    //     for x in &self.stream {
+    //         debug::print(&x);
+    //     }
+    // }
 
     fn print_tree(node: &Node) {
         let _ = match node {
-            Node::VariableDeclr { Value, .. } => {
+            Node::VariableDeclr { value: Value, .. } => {
                 print!("let ");
                 Self::print_tree(Value)
             }
@@ -79,20 +82,20 @@ impl Parser {
 
         let b = self.parse_expr(expect_token::any);
 
-        //debug::print(&b);
-
-        //Self::print_tree(&b);
-
-        // for t in self.tokens {
-        //     let a = self.parse_stmt();
-        //     println!("{:?}", a);
-        // }
+        debug::print(&b);
         //
+        // //Self::print_tree(&b);
+        //
+        // // for t in self.tokens {
+        // //     let a = self.parse_stmt();
+        // //     println!("{:?}", a);
+        // // }
+        // //
         Ok(())
     }
 
     fn parse_expr(&mut self, is_expected: fn(&Token) -> bool) -> Node {
-        let Some(token) = self.take(true) else {
+        let Some(token) = self.stream.take() else {
             panic!("no token found")
         };
 
@@ -104,18 +107,18 @@ impl Parser {
 
         let res = match token.kind {
             TokenKind::Let => {
-                if self.peek_expect(expect_token::identifier) {
-                    let Some(ident) = self.take(true) else {
+                if self.stream.peek_expect(expect_token::identifier) {
+                    let Some(ident) = self.stream.take() else {
                         panic!("uknown expr")
                     };
                     let TokenKind::Identifier(name) = ident.kind else {
                         panic!("uknown expr")
                     };
-                    let _ = self.take_if(expect_token::assign);
+                    let _ = self.stream.take_if_fn(expect_token::assign);
                     Node::VariableDeclr {
                         scope: self.id_generator.next(),
                         ident: name,
-                        Value: Box::new(self.parse_expr(expect_token::any)),
+                        value: Box::new(self.parse_expr(expect_token::any)),
                     }
                 } else {
                     println!("eof");
@@ -124,8 +127,8 @@ impl Parser {
             }
             TokenKind::Number(x) => {
                 // TODO: convert, check type etc.
-                if self.peek_expect(expect_token::operator) {
-                    let Some(op) = self.take(true) else {
+                if self.stream.peek_expect(expect_token::operator) {
+                    let Some(op) = self.stream.take() else {
                         panic!("operator???")
                     };
                     Node::BinaryExpr {
@@ -144,52 +147,13 @@ impl Parser {
                     }
                 }
             }
-            _ => panic!("adfdsa"),
+            _ => {
+                self.diagnostics
+                    .push(DiagEntry::empty("invalid token".to_string()));
+                panic!("asdf")
+            }
         };
         res
-    }
-
-    /// pops the next token from the que
-    fn take(&mut self, skip_trivia: bool) -> Option<Token> {
-        if skip_trivia {
-            while let Some(t) = self.tokens.pop_front() {
-                let TokenKind::Trivia(_) = t.kind else {
-                    return Some(t);
-                };
-            }
-            return None;
-        } else {
-            return self.tokens.pop_front();
-        }
-    }
-
-    /// pops the next token if it matches the predicate
-    fn take_if(&mut self, pred: fn(&Token) -> bool) -> Option<Token> {
-        if self.peek_expect(pred) {
-            self.take(true)
-        } else {
-            None
-        }
-    }
-
-    fn take_until(&self, pred: fn(&Token) -> bool) -> Option<Vec<Token>> {
-        todo!()
-    }
-
-    fn take_until_including(&self, pred: fn(&Token) -> bool) -> Option<Vec<Token>> {
-        todo!()
-    }
-
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(0)
-    }
-
-    fn peek_expect(&self, pred: fn(&Token) -> bool) -> bool {
-        if let Some(t) = self.peek() {
-            return pred(t);
-        } else {
-            return false;
-        }
     }
 }
 
@@ -228,7 +192,7 @@ pub enum Node {
     VariableDeclr {
         scope: Scope,
         ident: String,
-        Value: Box<Node>,
+        value: Box<Node>,
     },
     //expr
     ConstExpr {
@@ -253,6 +217,7 @@ impl Node {
 
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let _ = f;
         match self {
             Node::VariableAccess => todo!(),
             Node::FunctionCall => todo!(),
@@ -288,7 +253,7 @@ impl AST {
 }
 
 #[derive(Debug)]
-struct ModuleDeclr {
+pub(crate) struct ModuleDeclr {
     name: String,
     root: Option<Vec<Box<Node>>>,
 }
@@ -319,7 +284,7 @@ enum IdType {
 }
 
 #[derive(Debug)]
-enum Operator {
+pub(crate) enum Operator {
     Plus,
     Minus,
     Mul,

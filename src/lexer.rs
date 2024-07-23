@@ -2,7 +2,6 @@ use std::usize;
 
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
-use crate::stream;
 use crate::stream::Stream;
 use crate::token::NumberToken;
 use crate::token::Token;
@@ -279,6 +278,9 @@ fn match_litteral(str: &str) -> TokenKind {
         "trait" => TokenKind::Trait,
         "variant" => TokenKind::Variant,
         "const" => TokenKind::Const,
+        "macro" => TokenKind::Macro,
+        "todo" => TokenKind::Todo,
+        "panic" => TokenKind::Panic,
         _ => TokenKind::Identifier(str.to_string()),
     }
 }

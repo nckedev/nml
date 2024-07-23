@@ -1,19 +1,22 @@
 use std::collections::VecDeque;
 
-pub struct Stream<T> {
+pub struct Stream<T>
+where
+    T: Clone,
+{
     buffer: VecDeque<T>,
     pub prev: Option<T>,
     pub curr: Option<T>,
 }
 
-impl<T> Stream<T>
+impl<'a, T> Stream<T>
 where
-    T: Copy,
+    T: Clone,
 {
     /// Returns the next value without moving forward forward in the stream
     pub fn peek(&self) -> Option<T> {
         if let Some(v) = self.buffer.get(0) {
-            return Some(*v);
+            return Some(v.clone());
         }
         None
     }
@@ -21,7 +24,7 @@ where
     /// peeks n steps ahead and returns the value without moving forward in the stream
     pub fn peek_n(&self, steps: usize) -> Option<T> {
         if let Some(v) = self.buffer.get(steps) {
-            return Some(*v);
+            return Some(v.clone());
         }
         None
     }
@@ -66,8 +69,6 @@ where
     /// takes the elemnt at the front and returns it
     pub fn take(&mut self) -> Option<T> {
         let v = self.buffer.pop_front();
-        self.prev = self.curr;
-        self.curr = v;
         v
     }
 
@@ -117,7 +118,10 @@ where
     }
 }
 
-impl<T> From<Vec<T>> for Stream<T> {
+impl<T> From<Vec<T>> for Stream<T>
+where
+    T: Clone,
+{
     fn from(value: Vec<T>) -> Self {
         Self {
             buffer: VecDeque::from(value),

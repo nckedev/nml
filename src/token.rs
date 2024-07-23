@@ -29,6 +29,9 @@ pub enum TokenKind {
     Yied,
     Const,
     Function,
+    Macro,
+    Todo,
+    Panic,
 
     If,
     Else,
@@ -133,7 +136,7 @@ pub enum TokenTrivia {
 }
 
 /// TokenSpan
-#[derive(Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TokenSpan {
     pub start: SourceIndex,
     pub end: SourceIndex,
@@ -149,7 +152,7 @@ impl TokenSpan {
 }
 
 /// Token
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: TokenSpan,

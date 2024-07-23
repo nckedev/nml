@@ -1,3 +1,4 @@
+mod diagnostics;
 mod lexer;
 mod parser;
 mod pos;
@@ -29,8 +30,8 @@ fn main() -> Result<(), LexerErr> {
     }
 
     println!("AST");
-    // let mut p = Parser::new(lot);
-    // p.parse();
+    let mut p = Parser::new(lot);
+    p.parse();
 
     Ok(())
 }
