@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::fmt::Display;
+
 use crate::source_char::SourceIndex;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -32,6 +34,7 @@ pub enum TokenKind {
     Macro,
     Todo,
     Panic,
+    Self_,
 
     If,
     Else,
@@ -54,6 +57,7 @@ pub enum TokenKind {
     CloseBracket,
     OpenCurl,
     CloseCurl,
+    Separator,
 
     //one or two char
     Assign,
@@ -111,6 +115,17 @@ impl TokenKind {
     #[must_use]
     pub fn is_trivia(&self) -> bool {
         matches!(self, Self::Trivia(..))
+    }
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Mod => {
+                write!(f, "binary operator")
+            }
+            _ => write!(f, "Display not "),
+        }
     }
 }
 

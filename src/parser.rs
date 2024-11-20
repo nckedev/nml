@@ -1,18 +1,23 @@
 use std::fmt::Display;
 
 use crate::{
-    diagnostics::DiagEntry,
+    diagnostics::{DiagEntry, Diagnostics},
     scope::{Scope, ScopeGenerator},
+    token,
 };
 use crate::{
     stream::Stream,
     token::{Token, TokenKind, TokenTrivia},
 };
 
+pub struct ParseState {}
+
 pub struct Parser {
     stream: Stream<Token>,
     tree: AST,
-    diagnostics: Vec<DiagEntry>,
+
+    //TODO: make diagnostics struct
+    diagnostics: Diagnostics,
     id_generator: ScopeGenerator,
 }
 
@@ -38,7 +43,7 @@ impl Parser {
         Self {
             stream: Stream::from(t),
             tree: AST::new(),
-            diagnostics: vec![],
+            diagnostics: Diagnostics::new(),
             id_generator: ScopeGenerator::new(),
         }
     }
@@ -49,9 +54,13 @@ impl Parser {
     //     }
     // }
 
+    pub fn get_diagnostics(&self) -> &Diagnostics {
+        &self.diagnostics
+    }
+
     fn print_tree(node: &Node) {
         let _ = match node {
-            Node::VariableDeclr { value: Value, .. } => {
+            Node::LetStmt { value: Value, .. } => {
                 print!("let ");
                 Self::print_tree(Value)
             }
@@ -69,7 +78,7 @@ impl Parser {
         };
     }
 
-    pub fn parse(&mut self) -> Result<(), ParseErr> {
+    pub fn parse(&mut self) -> Result<AST, ParseErr> {
         let root = self.id_generator.next();
         let mut s = Node::ModuleDeclr(ModuleDeclr {
             name: "mod".to_string(),
@@ -80,9 +89,11 @@ impl Parser {
 
         //self.print();
 
-        let b = self.parse_expr(expect_token::any);
-
+        let b = self.parse_stmt(expect_token::any);
+        let mut ast = AST::new();
         debug::print(&b);
+        ast.add(b);
+
         //
         // //Self::print_tree(&b);
         //
@@ -91,10 +102,75 @@ impl Parser {
         // //     println!("{:?}", a);
         // // }
         // //
-        Ok(())
+        Ok(ast)
     }
 
-    fn parse_expr(&mut self, is_expected: fn(&Token) -> bool) -> Node {
+    //parse order -> addative -> multiplicative -> const
+    //
+
+    fn parse_addative_expr(&mut self) -> Node {
+        let mut left = self.parse_multiplicative_expr();
+
+        while let Some(token) = self.stream.take_if_fn(expect_token::operator_addative) {
+            let op = token.kind;
+            let right = self.parse_multiplicative_expr();
+            left = Node::BinaryExpr {
+                left: left.boxed(),
+                operator: op.into(),
+                right: right.boxed(),
+            };
+        }
+
+        left
+    }
+
+    fn parse_multiplicative_expr(&mut self) -> Node {
+        let mut left = self.parse_const_expr();
+
+        while let Some(token) = self
+            .stream
+            .take_if_fn(expect_token::operator_multiplicative)
+        {
+            let op = token.kind;
+            let right = self.parse_const_expr();
+            left = Node::BinaryExpr {
+                left: left.boxed(),
+                operator: op.into(),
+                right: right.boxed(),
+            };
+        }
+
+        left
+    }
+
+    fn parse_const_expr(&mut self) -> Node {
+        let Some(token) = self.stream.take() else {
+            self.diagnostics
+                .push(DiagEntry::message_only(String::from("no token in stream")));
+            return Node::Invalid;
+        };
+
+        match token.kind {
+            TokenKind::Number(x) => Node::ConstExpr {
+                scope: self.id_generator.next(),
+                value: x.value,
+            },
+            x => {
+                self.diagnostics
+                    .push_expected_token_missmatch(&x, "number".into(), &token.span);
+                Node::Invalid
+            }
+        }
+    }
+
+    //statements
+    //let binding
+    //fn declr
+    //type declr
+    //if statement
+    //for loop
+    //return
+    fn parse_stmt(&mut self, is_expected: fn(&Token) -> bool) -> Node {
         let Some(token) = self.stream.take() else {
             panic!("no token found")
         };
@@ -115,36 +191,14 @@ impl Parser {
                         panic!("uknown expr")
                     };
                     let _ = self.stream.take_if_fn(expect_token::assign);
-                    Node::VariableDeclr {
+                    Node::LetStmt {
                         scope: self.id_generator.next(),
                         ident: name,
-                        value: Box::new(self.parse_expr(expect_token::any)),
+                        value: Box::new(self.parse_addative_expr()),
                     }
                 } else {
                     println!("eof");
                     Node::EOF
-                }
-            }
-            TokenKind::Number(x) => {
-                // TODO: convert, check type etc.
-                if self.stream.peek_expect(expect_token::operator) {
-                    let Some(op) = self.stream.take() else {
-                        panic!("operator???")
-                    };
-                    Node::BinaryExpr {
-                        left: Node::ConstExpr {
-                            scope: self.id_generator.next(),
-                            value: x.value,
-                        }
-                        .boxed(),
-                        operator: Operator::from(op.kind),
-                        right: Box::new(self.parse_expr(expect_token::any)),
-                    }
-                } else {
-                    Node::ConstExpr {
-                        scope: self.id_generator.next(),
-                        value: x.value,
-                    }
                 }
             }
             _ => {
@@ -181,20 +235,25 @@ struct Location {
     col: i32,
 }
 
+// !!! expression is something that evaluates to a value
 #[derive(Debug)]
 pub enum Node {
     VariableAccess,
     FunctionCall,
     MethodCall,
+
     //stmt
     BlockStmt,
     ModuleDeclr(ModuleDeclr),
-    VariableDeclr {
+    LetStmt {
         scope: Scope,
         ident: String,
         value: Box<Node>,
     },
+
     //expr
+    IfExpr,
+    MatchExpr,
     ConstExpr {
         scope: Scope,
         value: String,
@@ -204,9 +263,17 @@ pub enum Node {
         operator: Operator,
         right: Box<Node>,
     },
+    BooleanExpr {
+        left: Box<Node>,
+        operator: Operator,
+        right: Box<Node>,
+    },
 
     UnaryExpr,
     EOF,
+
+    Invalid,
+    Empty,
 }
 
 impl Node {
@@ -224,17 +291,22 @@ impl Display for Node {
             Node::MethodCall => todo!(),
             Node::BlockStmt => todo!(),
             Node::ModuleDeclr(_) => todo!(),
-            Node::VariableDeclr { .. } => todo!(),
+            Node::LetStmt { .. } => todo!(),
             Node::ConstExpr { .. } => todo!(),
             Node::BinaryExpr { .. } => todo!(),
             Node::UnaryExpr => todo!(),
             Node::EOF => todo!(),
+            Node::IfExpr => todo!(),
+            Node::MatchExpr => todo!(),
+            Node::Invalid => todo!(),
+            Node::Empty => todo!(),
+            Node::BooleanExpr { .. } => todo!(),
         }
     }
 }
 
 #[derive(Debug)]
-struct AST {
+pub(crate) struct AST {
     list: Vec<Box<Node>>,
 }
 
@@ -332,9 +404,27 @@ mod expect_token {
         }
     }
 
+    pub fn function_call(t: &Token) -> bool {
+        // TODO: Impl
+        false
+    }
+
     pub fn operator(t: &Token) -> bool {
         match t.kind {
             TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Div => true,
+            _ => false,
+        }
+    }
+    pub fn operator_addative(t: &Token) -> bool {
+        match t.kind {
+            TokenKind::Plus | TokenKind::Minus => true,
+            _ => false,
+        }
+    }
+
+    pub fn operator_multiplicative(t: &Token) -> bool {
+        match t.kind {
+            TokenKind::Mul | TokenKind::Div | TokenKind::Mod => true,
             _ => false,
         }
     }

@@ -20,18 +20,26 @@ use lexer::{Lexer, LexerErr};
 
 fn main() -> Result<(), LexerErr> {
     println!("tokenizing");
-    let test_str1 = "let abc = 123 + 11 * 2 +3";
+    // let test_str1 = "let abc = 123";
+    let test_str1 = "let abc = 123 ++ 11 * 2 +3";
 
     let mut t = Lexer::new(test_str1);
     let lot = t.tokenize()?;
 
-    for t in &lot {
-        println!("{t:?}")
-    }
+    // for t in &lot {
+    //     println!("{t:?}")
+    // }
 
     println!("AST");
     let mut p = Parser::new(lot);
-    p.parse();
+    if let Ok(r) = p.parse() {
+        println!(" tree: {:?}", r)
+    }
+
+    let diagnostics = p.get_diagnostics();
+    for d in diagnostics.iter() {
+        println!("{d}");
+    }
 
     Ok(())
 }

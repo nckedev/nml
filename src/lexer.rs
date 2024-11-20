@@ -108,11 +108,20 @@ impl Lexer {
                         false => TokenKind::Lt,
                     }
                 }
-                SourceChar { ch: '-', .. } => TokenKind::Minus,
+                //arrow or minus
+                SourceChar { ch: '-', .. } => {
+                    if self.stream.peek_and_step_if(SourceChar::from('>')) {
+                        TokenKind::Arrow
+                    } else {
+                        TokenKind::Minus
+                    }
+                }
+                //math operators
                 SourceChar { ch: '+', .. } => TokenKind::Plus,
                 SourceChar { ch: '*', .. } => TokenKind::Mul,
                 SourceChar { ch: '/', .. } => TokenKind::Div,
 
+                //method accessor or range operator
                 SourceChar { ch: '.', .. } => {
                     if self.stream.peek_and_step_if(SourceChar::from('.')) {
                         if self.stream.peek_and_step_if(SourceChar::from('=')) {
@@ -131,6 +140,7 @@ impl Lexer {
                         }
                     }
                 }
+                SourceChar { ch: ',', .. } => TokenKind::Separator,
                 SourceChar { ch: '{', .. } => TokenKind::OpenCurl,
                 SourceChar { ch: '}', .. } => TokenKind::CloseCurl,
                 SourceChar { ch: '(', .. } => TokenKind::OpenParen,
@@ -145,7 +155,7 @@ impl Lexer {
 
                 //attribute, @test
                 SourceChar { ch: '@', .. } => {
-                    if self.stream.peek_expect(|x| x.is_alpha()) {
+                    if self.stream.peek_expect(SourceChar::is_alpha) {
                         TokenKind::AtMarker
                     } else {
                         TokenKind::Error(Unexpected(v.ch))
@@ -157,6 +167,8 @@ impl Lexer {
                     // let str: String = attr_arr.into_iter().map(|x| x.ch).collect();
                     // TokenKind::Attribute(str)
                 }
+
+                //np match
                 _ => TokenKind::Error(Unexpected(v.ch)),
             };
 
@@ -267,9 +279,9 @@ fn match_litteral(str: &str) -> TokenKind {
     match str {
         "let" => TokenKind::Let,
         "if" => TokenKind::If,
-        "do" => TokenKind::Do,
+        // "do" => TokenKind::Do,
         "else" => TokenKind::Else,
-        "end" => TokenKind::End,
+        // "end" => TokenKind::End,
         "for" => TokenKind::For,
         "mut" => TokenKind::Mut,
         "ref" => TokenKind::Ref,
@@ -281,6 +293,7 @@ fn match_litteral(str: &str) -> TokenKind {
         "macro" => TokenKind::Macro,
         "todo" => TokenKind::Todo,
         "panic" => TokenKind::Panic,
+        "self" => TokenKind::Self_,
         _ => TokenKind::Identifier(str.to_string()),
     }
 }
@@ -312,6 +325,10 @@ mod lexer_tests {
             prefix: None,
             suffix,
         })
+    }
+
+    fn identifier_from_str(str: &str) -> TokenKind {
+        TokenKind::Identifier(str.to_string())
     }
 
     #[rstest]
@@ -456,6 +473,37 @@ mod lexer_tests {
             Identifier("test".to_string()),
             Function,
             Identifier("testFunc".to_string()),
+        ];
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn methods() {
+        use TokenKind::*;
+
+        let actual = tokenize_filter_whitespace(
+            "fn my_struct.my_method = self, arg1 int, arg2 string -> string {}",
+            true,
+        );
+
+        let expected = vec![
+            Function,
+            Identifier("my_struct".to_string()),
+            MethodAccessor,
+            Identifier("my_method".to_string()),
+            Assign,
+            Self_,
+            Separator,
+            Identifier("arg1".to_string()),
+            Identifier("int".to_string()),
+            Separator,
+            Identifier("arg2".to_string()),
+            Identifier("string".to_string()),
+            Arrow,
+            identifier_from_str("string"),
+            OpenCurl,
+            CloseCurl,
         ];
 
         assert_eq!(actual, expected);

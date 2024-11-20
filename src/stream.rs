@@ -47,6 +47,13 @@ where
         false
     }
 
+    pub fn test(&self, pred: fn(&T) -> bool) -> Option<T> {
+        let Some(v) = self.buffer.get(0) else {
+            return None;
+        };
+        Some(v.clone())
+    }
+
     /// peeks at the next element and steps forward if it matches,
     /// returns true if a matching element was found
     pub fn peek_and_step_if(&mut self, pred: T) -> bool
