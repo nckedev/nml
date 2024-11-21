@@ -3,7 +3,6 @@ use std::fmt::Display;
 use crate::{
     diagnostics::{DiagEntry, Diagnostics},
     scope::{Scope, ScopeGenerator},
-    token,
 };
 use crate::{
     stream::Stream,
@@ -14,7 +13,6 @@ pub struct ParseState {}
 
 pub struct Parser {
     stream: Stream<Token>,
-    tree: AST,
 
     //TODO: make diagnostics struct
     diagnostics: Diagnostics,
@@ -42,7 +40,6 @@ impl Parser {
             .collect::<Vec<Token>>();
         Self {
             stream: Stream::from(t),
-            tree: AST::new(),
             diagnostics: Diagnostics::new(),
             id_generator: ScopeGenerator::new(),
         }
@@ -80,16 +77,10 @@ impl Parser {
 
     pub fn parse(&mut self) -> Result<AST, ParseErr> {
         let root = self.id_generator.next();
-        let mut s = Node::ModuleDeclr(ModuleDeclr {
-            name: "mod".to_string(),
-            root: None,
-        });
-
-        self.tree.add(s);
 
         //self.print();
 
-        let b = self.parse_stmt(expect_token::any);
+        let b = self.parse_stmt();
         let mut ast = AST::new();
         debug::print(&b);
         ast.add(b);
@@ -170,41 +161,60 @@ impl Parser {
     //if statement
     //for loop
     //return
-    fn parse_stmt(&mut self, is_expected: fn(&Token) -> bool) -> Node {
+    fn parse_stmt(&mut self) -> Node {
         let Some(token) = self.stream.take() else {
-            panic!("no token found")
+            return Node::EOF;
         };
 
         debug::print(&token);
 
-        if !is_expected(&token) {
-            panic!("unexpected token {:?}", token);
-        }
-
         let res = match token.kind {
             TokenKind::Let => {
-                if self.stream.peek_expect(expect_token::identifier) {
-                    let Some(ident) = self.stream.take() else {
-                        panic!("uknown expr")
-                    };
-                    let TokenKind::Identifier(name) = ident.kind else {
-                        panic!("uknown expr")
-                    };
-                    let _ = self.stream.take_if_fn(expect_token::assign);
-                    Node::LetStmt {
-                        scope: self.id_generator.next(),
-                        ident: name,
-                        value: Box::new(self.parse_addative_expr()),
+                if let Some(token) = self.stream.take() {
+                    if let TokenKind::Identifier(ident) = token.kind {
+                        Node::LetStmt {
+                            scope: self.id_generator.next(),
+                            ident,
+                            value: Box::new(self.parse_addative_expr()),
+                        }
+                    } else {
+                        self.diagnostics.push_expected_token_missmatch(
+                            &token.kind,
+                            "identifier".to_string(),
+                            &token.span,
+                        );
+                        self.parse_stmt()
                     }
                 } else {
-                    println!("eof");
                     Node::EOF
                 }
             }
-            _ => {
+            TokenKind::Module => {
+                if let Some(token) = self.stream.take() {
+                    if let TokenKind::Identifier(i) = token.kind {
+                        Node::ModuleDeclr {
+                            scope: self.id_generator.next(),
+                            ident: i,
+                            body: vec![Box::new(self.parse_stmt())],
+                        }
+                    } else {
+                        self.diagnostics.push_expected_token_missmatch(
+                            &token.kind,
+                            "identifier".to_string(),
+                            &token.span,
+                        );
+                        self.parse_stmt()
+                    }
+                } else {
+                    Node::EOF
+                }
+            }
+            TokenKind::Trivia(TokenTrivia::EOL) => self.parse_stmt(),
+            TokenKind::Trivia(TokenTrivia::EOF) => Node::EOF,
+            x => {
                 self.diagnostics
                     .push(DiagEntry::empty("invalid token".to_string()));
-                panic!("asdf")
+                self.parse_stmt()
             }
         };
         res
@@ -244,7 +254,12 @@ pub enum Node {
 
     //stmt
     BlockStmt,
-    ModuleDeclr(ModuleDeclr),
+    UseStmt {},
+    ModuleDeclr {
+        scope: Scope,
+        ident: String,
+        body: Vec<Box<Node>>,
+    },
     LetStmt {
         scope: Scope,
         ident: String,
@@ -290,7 +305,8 @@ impl Display for Node {
             Node::FunctionCall => todo!(),
             Node::MethodCall => todo!(),
             Node::BlockStmt => todo!(),
-            Node::ModuleDeclr(_) => todo!(),
+            Node::UseStmt {} => todo!(),
+            Node::ModuleDeclr { .. } => todo!(),
             Node::LetStmt { .. } => todo!(),
             Node::ConstExpr { .. } => todo!(),
             Node::BinaryExpr { .. } => todo!(),
@@ -446,19 +462,19 @@ mod expect_token {
 
     #[cfg(test)]
     mod tests {
-        use crate::token::TokenSpan;
+        use crate::span::Span;
 
         use super::*;
 
         #[test]
         fn expect_identifier() {
-            let a = Token::new(TokenKind::Identifier("test".into()), TokenSpan::empty());
+            let a = Token::new(TokenKind::Identifier("test".into()), Span::default());
 
             assert!(identifier(&a));
         }
         #[test]
         fn expect_not_identifier() {
-            let a = Token::new(TokenKind::Plus, TokenSpan::empty());
+            let a = Token::new(TokenKind::Plus, Span::default());
 
             assert!(!identifier(&a));
         }
@@ -469,6 +485,6 @@ mod debug {
     use std::fmt::Debug;
 
     pub fn print(arg: &impl Debug) {
-        println!("{:#?}", arg);
+        println!(">> {:#?}", arg);
     }
 }

@@ -2,16 +2,16 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::slice::Iter;
 
+use crate::span::Span;
 use crate::token::Token;
 use crate::token::TokenKind;
-use crate::token::TokenSpan;
 
 #[derive(Debug)]
 pub struct DiagEntry {
     id: String,
     module: String,
     severity: DiagSeverity,
-    span: DiagSpan,
+    span: Span,
     message: String,
 }
 
@@ -20,7 +20,7 @@ impl DiagEntry {
         id: String,
         module: String,
         severity: DiagSeverity,
-        span: DiagSpan,
+        span: Span,
         message: String,
     ) -> Self {
         Self {
@@ -36,7 +36,7 @@ impl DiagEntry {
             id: "id".to_string(),
             module: "mod".to_string(),
             severity: DiagSeverity::Err,
-            span: DiagSpan::empty(),
+            span: Span::default(),
             message: message.to_string(),
         }
     }
@@ -46,7 +46,7 @@ impl DiagEntry {
             id: "id".to_string(),
             module: "mod".to_string(),
             severity: DiagSeverity::Err,
-            span: DiagSpan::empty(),
+            span: Span::default(),
             message,
         }
     }
@@ -62,23 +62,7 @@ impl Display for DiagEntry {
         Ok(())
     }
 }
-#[derive(Debug)]
-struct DiagSpan {
-    start: usize,
-    end: usize,
-}
 
-impl DiagSpan {
-    pub fn empty() -> Self {
-        Self { start: 0, end: 0 }
-    }
-}
-
-impl From<TokenSpan> for DiagSpan {
-    fn from(value: TokenSpan) -> Self {
-        todo!()
-    }
-}
 #[derive(Debug)]
 pub enum DiagSeverity {
     Err,
@@ -108,7 +92,7 @@ impl Diagnostics {
         &mut self,
         actual: &TokenKind,
         expected: String,
-        span: &TokenSpan,
+        span: &Span,
     ) {
         let entry = DiagEntry::message_only(format!(
             "@ expected {}, found {}",

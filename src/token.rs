@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::span::Span;
 use std::fmt::Display;
 
 use crate::source_char::SourceIndex;
@@ -21,9 +22,9 @@ pub enum TokenKind {
     Let,
     Mut,
     Interface,
+    Trait,
     Variant, // or enum??
     Attribute,
-    Trait,
     Struct,
     Type,
     Ref,
@@ -32,14 +33,18 @@ pub enum TokenKind {
     Const,
     Function,
     Macro,
-    Todo,
+    Todo, //should be a macro
     Panic,
     Self_,
+    SelfType,
+    Module,
+    Void,
+    DBG,
 
     If,
     Else,
-    End,
-    Do,
+    // End,
+    // Do,
     For,
     In,
 
@@ -150,34 +155,18 @@ pub enum TokenTrivia {
     EOF,
 }
 
-/// TokenSpan
-#[derive(PartialEq, Debug, Clone)]
-pub struct TokenSpan {
-    pub start: SourceIndex,
-    pub end: SourceIndex,
-}
-
-impl TokenSpan {
-    pub fn empty() -> Self {
-        Self {
-            start: SourceIndex::emtpy(),
-            end: SourceIndex::emtpy(),
-        }
-    }
-}
-
 /// Token
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
-    pub span: TokenSpan,
+    pub span: Span,
 }
 
 impl Token {
-    pub fn new(kind: TokenKind, span: TokenSpan) -> Self {
+    pub fn new(kind: TokenKind, span: Span) -> Self {
         Token { kind, span }
     }
     fn empty() -> Self {
-        Self::new(TokenKind::Empty, TokenSpan::empty())
+        Self::new(TokenKind::Empty, Span::default())
     }
 }

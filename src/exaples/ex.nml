@@ -1,0 +1,16 @@
+type MyType = struct {
+		prop1 int
+		prop2 string
+}
+
+fn main = () {
+		
+}
+
+fn test = arg1 MyType, arg2 int -> int {
+		arg1.prop1 + arg2
+}
+
+fn MyType.Increment = &mut self, amount int {
+		self.prop1 + amount
+}

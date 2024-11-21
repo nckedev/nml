@@ -2,12 +2,12 @@ use std::usize;
 
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
+use crate::span::Span;
 use crate::stream::Stream;
 use crate::token::NumberToken;
 use crate::token::Token;
 use crate::token::TokenError::Unexpected;
 use crate::token::TokenKind;
-use crate::token::TokenSpan;
 use crate::token::TokenTrivia;
 
 pub struct Lexer {
@@ -181,10 +181,7 @@ impl Lexer {
 
             let token = Token {
                 kind: token_kind,
-                span: TokenSpan {
-                    start: v.index,
-                    end: end_index,
-                },
+                span: (v.index, end_index).into(),
             };
             tokens.push(token);
         }
@@ -193,10 +190,7 @@ impl Lexer {
         let last_index = tokens.len() - 1;
         if let Some(t) = tokens.get_mut(last_index) {
             println!("{:#?}", t);
-            t.span.end = SourceIndex {
-                row: 0,
-                col: last_index,
-            }
+            t.span.end = (0 as usize, last_index).into();
         }
         Ok(tokens)
     }
@@ -294,6 +288,7 @@ fn match_litteral(str: &str) -> TokenKind {
         "todo" => TokenKind::Todo,
         "panic" => TokenKind::Panic,
         "self" => TokenKind::Self_,
+        "mod" => TokenKind::Module,
         _ => TokenKind::Identifier(str.to_string()),
     }
 }
@@ -306,13 +301,31 @@ mod lexer_tests {
     // lexer integrations test
     const SPC: TokenKind = TokenKind::Trivia(TokenTrivia::Space);
 
-    fn tokenize_filter_whitespace(code: &str, skip_whitespace: bool) -> Vec<TokenKind> {
+    fn tokenkind_vector(code: &str, skip_whitespace: bool) -> Vec<TokenKind> {
         let mut l = Lexer::new(code);
         match l.tokenize() {
             Ok(value) => value
                 .iter()
                 .map(|x| x.kind.clone())
                 .filter(|x| if skip_whitespace { *x != SPC } else { true })
+                .collect(),
+            Err(_) => vec![],
+        }
+    }
+
+    fn token_vector(code: &str, skip_whitespace: bool) -> Vec<Token> {
+        let mut l = Lexer::new(code);
+        match l.tokenize() {
+            Ok(value) => value
+                .iter()
+                .map(|t| t.clone())
+                .filter(|tok| {
+                    if skip_whitespace {
+                        tok.kind != SPC
+                    } else {
+                        true
+                    }
+                })
                 .collect(),
             Err(_) => vec![],
         }
@@ -353,7 +366,7 @@ mod lexer_tests {
             suffix: expected_suffix,
         });
 
-        let actual = tokenize_filter_whitespace(&input, true);
+        let actual = tokenkind_vector(&input, true);
         assert!(actual.contains(&expected));
     }
 
@@ -372,34 +385,25 @@ mod lexer_tests {
             }),
         ];
 
-        let res = tokenize_filter_whitespace("let a = 1", true);
+        let res = tokenkind_vector("let a = 1", true);
         assert_eq!(exp, res);
     }
 
     #[test]
-    fn if_statement() {
-        use TokenKind::*;
-
-        let left = tokenize_filter_whitespace("if a >= b do a + b end", true);
-        let right = vec![
-            If,
-            Identifier("a".to_string()),
-            GtEq,
-            Identifier("b".to_string()),
-            Do,
-            Identifier("a".to_string()),
-            Plus,
-            Identifier("b".to_string()),
-            End,
-        ];
-        assert_eq!(left, right);
+    fn span() {
+        let tokenized = token_vector("let a = 1", true);
+        let token = tokenized.get(0).unwrap();
+        assert_eq!(token.span.start, (1usize, 1usize).into());
+        assert_eq!(token.span.end, (1usize, 3usize).into());
+        let token = tokenized.get(1usize).unwrap();
+        // assert_eq!(token.span.start, (5, 6).into());
     }
 
     #[test]
     fn if_statement_curl() {
         use TokenKind::*;
 
-        let left = tokenize_filter_whitespace("if a >= b { a + b }", true);
+        let left = tokenkind_vector("if a >= b { a + b }", true);
         let right = vec![
             If,
             Identifier("a".to_string()),
@@ -418,21 +422,23 @@ mod lexer_tests {
     fn if_else_statement() {
         use TokenKind::*;
 
-        let left = tokenize_filter_whitespace("if a >= b do a + b else a - b end", true);
+        let left = tokenkind_vector("if a >= b { a + b } else  { a - b }", true);
         let right = vec![
             If,
             Identifier("a".to_string()),
             GtEq,
             Identifier("b".to_string()),
-            Do,
+            OpenCurl,
             Identifier("a".to_string()),
             Plus,
             Identifier("b".to_string()),
+            CloseCurl,
             Else,
+            OpenCurl,
             Identifier("a".to_string()),
             Minus,
             Identifier("b".to_string()),
-            End,
+            CloseCurl,
         ];
         assert_eq!(left, right);
     }
@@ -441,7 +447,7 @@ mod lexer_tests {
     fn range_operator() {
         use TokenKind::*;
 
-        let left = tokenize_filter_whitespace("0..10", true);
+        let left = tokenkind_vector("0..10", true);
         let right = vec![
             number_token_from_str("0", None),
             ExclusiveRange,
@@ -454,7 +460,7 @@ mod lexer_tests {
     fn range_inclusive_operator() {
         use TokenKind::*;
 
-        let left = tokenize_filter_whitespace("0   ..= 10", true);
+        let left = tokenkind_vector("0   ..= 10", true);
         let right = vec![
             number_token_from_str("0", None),
             InclusiveRange,
@@ -467,7 +473,7 @@ mod lexer_tests {
     fn attribute() {
         use TokenKind::*;
 
-        let actual = tokenize_filter_whitespace("@test fn testFunc", true);
+        let actual = tokenkind_vector("@test fn testFunc", true);
         let expected = vec![
             AtMarker,
             Identifier("test".to_string()),
@@ -482,7 +488,7 @@ mod lexer_tests {
     fn methods() {
         use TokenKind::*;
 
-        let actual = tokenize_filter_whitespace(
+        let actual = tokenkind_vector(
             "fn my_struct.my_method = self, arg1 int, arg2 string -> string {}",
             true,
         );

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Copy, Clone, Debug)]
 pub(crate) struct SourceChar {
     pub ch: char,
@@ -44,20 +46,37 @@ impl From<char> for SourceChar {
     fn from(value: char) -> Self {
         SourceChar {
             ch: value,
-            index: SourceIndex { row: 0, col: 0 },
+            index: SourceIndex::default(),
         }
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
 pub struct SourceIndex {
     pub row: usize,
     pub col: usize,
 }
 
-impl SourceIndex {
-    pub fn emtpy() -> Self {
-        Self { row: 0, col: 0 }
+impl From<(usize, usize)> for SourceIndex {
+    fn from(value: (usize, usize)) -> Self {
+        Self {
+            row: value.0,
+            col: value.1,
+        }
+    }
+}
+impl From<(i32, usize)> for SourceIndex {
+    fn from(value: (i32, usize)) -> Self {
+        Self {
+            row: value.0 as usize,
+            col: value.1,
+        }
+    }
+}
+
+impl Display for SourceIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}:{})", self.row, self.col)
     }
 }
 
