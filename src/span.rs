@@ -13,5 +13,8 @@ impl From<(SourceIndex, SourceIndex)> for Span {
             end: value.1,
         }
     }
-    //
+}
+
+trait HasSpan {
+    fn span(&self) -> Span;
 }

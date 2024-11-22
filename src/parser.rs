@@ -57,10 +57,7 @@ impl Parser {
 
     fn print_tree(node: &Node) {
         let _ = match node {
-            Node::LetStmt { value: Value, .. } => {
-                print!("let ");
-                Self::print_tree(Value)
-            }
+            Node::LetStmt { value, .. } => Self::print_tree(value),
             Node::BinaryExpr {
                 left,
                 operator,
@@ -82,7 +79,7 @@ impl Parser {
 
         let b = self.parse_stmt();
         let mut ast = AST::new();
-        debug::print(&b);
+        // debug::print(&b);
         ast.add(b);
 
         //
@@ -166,7 +163,7 @@ impl Parser {
             return Node::EOF;
         };
 
-        debug::print(&token);
+        // debug::print(&token);
 
         let res = match token.kind {
             TokenKind::Let => {

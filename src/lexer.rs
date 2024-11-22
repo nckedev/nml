@@ -26,18 +26,19 @@ impl Lexer {
 
         //transform chars to SourceChars to get the index of every char
         let mut row = 1 as usize;
-        let mut col = 1 as usize;
+        let mut col = 0 as usize;
 
         for c in code.chars() {
-            if c == '\n' {
-                row += 1;
-                col = 1;
-            }
             sourcechars.push(SourceChar {
                 ch: c,
                 index: SourceIndex { row, col },
             });
-            col += 1;
+            if c == '\n' {
+                row += 1;
+                col = 0;
+            } else {
+                col += 1;
+            }
         }
 
         // insert a space at the last pos so that we can peek from the last char
@@ -61,6 +62,7 @@ impl Lexer {
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>, LexerErr> {
         let mut tokens = vec![];
+        let mut start = self.stream.index;
 
         while let Some(v) = self.stream.take() {
             let token_kind = match v {
@@ -172,24 +174,23 @@ impl Lexer {
                 _ => TokenKind::Error(Unexpected(v.ch)),
             };
 
-            //get the end index by looking at the start index for the next SourceChar
-            let end_index = if let Some(t) = self.stream.peek() {
-                t.index
-            } else {
-                SourceIndex { row: 0, col: 0 }
-            };
-
             let token = Token {
                 kind: token_kind,
-                span: (v.index, end_index).into(),
+                span: (start.into(), (self.stream.index).into()).into(),
             };
+
+            println!("{:?}", token);
+
+            // println!("##### {:?} {:?}", start, self.stream.index);
             tokens.push(token);
+
+            start = self.stream.index;
         }
 
         //the last entry will not have a correct span
         let last_index = tokens.len() - 1;
         if let Some(t) = tokens.get_mut(last_index) {
-            println!("{:#?}", t);
+            // println!("{:#?}", t);
             t.span.end = (0 as usize, last_index).into();
         }
         Ok(tokens)
@@ -389,14 +390,26 @@ mod lexer_tests {
         assert_eq!(exp, res);
     }
 
+    #[rstest]
+    #[case(0, (1,0), (1,3))]
+    #[case(1, (1,4), (1,5))]
+    #[case(5, (2,0), (2,3))]
+    fn span(
+        #[case] index: usize,
+        #[case] expected_start: (i32, i32),
+        #[case] expected_end: (i32, i32),
+    ) {
+        let tokenized = token_vector("let a = 1\nlet b = 2", true);
+        let token = tokenized.get(index).unwrap();
+        assert_eq!(token.span.start, SourceIndex::from(expected_start));
+        assert_eq!(token.span.end, SourceIndex::from(expected_end));
+    }
+
     #[test]
-    fn span() {
-        let tokenized = token_vector("let a = 1", true);
-        let token = tokenized.get(0).unwrap();
-        assert_eq!(token.span.start, (1usize, 1usize).into());
-        assert_eq!(token.span.end, (1usize, 3usize).into());
-        let token = tokenized.get(1usize).unwrap();
-        // assert_eq!(token.span.start, (5, 6).into());
+    fn new_lines() {
+        let tokenized = token_vector("\n", false);
+        let actual = tokenized.get(0).unwrap();
+        assert_eq!(TokenKind::Trivia(TokenTrivia::EOL), actual.kind);
     }
 
     #[test]

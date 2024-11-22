@@ -1,17 +1,26 @@
+#![allow(dead_code)]
 use std::collections::VecDeque;
+
+use crate::source_char::SourceIndex;
+pub trait LineSeparator {
+    type Item;
+    fn is_line_separator(x: &Self::Item) -> bool;
+}
 
 pub struct Stream<T>
 where
-    T: Clone,
+    T: Clone + PartialEq + std::fmt::Debug + LineSeparator<Item = T>,
 {
     buffer: VecDeque<T>,
-    pub prev: Option<T>,
-    pub curr: Option<T>,
+    pub index: SourceIndex,
 }
 
 impl<'a, T> Stream<T>
 where
     T: Clone,
+    T: PartialEq,
+    T: std::fmt::Debug,
+    T: LineSeparator<Item = T>,
 {
     /// Returns the next value without moving forward forward in the stream
     pub fn peek(&self) -> Option<T> {
@@ -47,13 +56,6 @@ where
         false
     }
 
-    pub fn test(&self, pred: fn(&T) -> bool) -> Option<T> {
-        let Some(v) = self.buffer.get(0) else {
-            return None;
-        };
-        Some(v.clone())
-    }
-
     /// peeks at the next element and steps forward if it matches,
     /// returns true if a matching element was found
     pub fn peek_and_step_if(&mut self, pred: T) -> bool
@@ -76,6 +78,9 @@ where
     /// takes the elemnt at the front and returns it
     pub fn take(&mut self) -> Option<T> {
         let v = self.buffer.pop_front();
+        if let Some(ref ch) = v {
+            self.step_index(&Some(ch.clone()));
+        }
         v
     }
 
@@ -101,11 +106,12 @@ where
 
     pub fn take_until_iter(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
         StreamTakeIterator {
-            buffer: &mut self.buffer,
+            stream: self,
             pred,
             invert_pred: true,
         }
     }
+
     pub fn take_until(&mut self, pred: fn(&T) -> bool) -> Vec<T> {
         self.take_until_iter(pred).collect()
     }
@@ -113,7 +119,7 @@ where
     /// takes item while the predicate is true
     pub fn take_while_iter(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
         StreamTakeIterator {
-            buffer: &mut self.buffer,
+            stream: self,
             pred,
             invert_pred: false,
         }
@@ -123,40 +129,65 @@ where
     pub fn take_while(&mut self, pred: fn(&T) -> bool) -> Vec<T> {
         self.take_while_iter(pred).collect()
     }
+
+    pub fn step_index(&mut self, x: &Option<T>) {
+        let Some(y) = x else {
+            return;
+        };
+        if T::is_line_separator(y) {
+            self.index.step_row()
+        } else {
+            self.index.step_col()
+        }
+    }
 }
 
 impl<T> From<Vec<T>> for Stream<T>
 where
     T: Clone,
+    T: PartialEq,
+    T: std::fmt::Debug,
+    T: Default,
+    T: LineSeparator<Item = T>,
 {
     fn from(value: Vec<T>) -> Self {
         Self {
             buffer: VecDeque::from(value),
-            prev: None,
-            curr: None,
+            index: SourceIndex::default(),
         }
     }
 }
 
-struct StreamTakeIterator<'a, T> {
-    buffer: &'a mut VecDeque<T>,
+struct StreamTakeIterator<'a, T>
+where
+    T: Clone,
+    T: PartialEq,
+    T: std::fmt::Debug,
+    T: LineSeparator<Item = T>,
+{
+    stream: &'a mut Stream<T>,
     pred: fn(&T) -> bool,
     invert_pred: bool,
 }
 
-impl<T> Iterator for StreamTakeIterator<'_, T> {
+impl<T> Iterator for StreamTakeIterator<'_, T>
+where
+    T: Clone,
+    T: PartialEq,
+    T: std::fmt::Debug,
+    T: LineSeparator<Item = T>,
+{
     type Item = T;
 
-    // TODO: curr and prev for iterator, how?
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(x) = self.buffer.get(0) {
+        if let Some(x) = self.stream.buffer.get(0) {
             if self.invert_pred {
                 if !(self.pred)(x) {
-                    return self.buffer.pop_front();
+                    return self.stream.take();
                 }
             } else {
                 if (self.pred)(x) {
-                    return self.buffer.pop_front();
+                    return self.stream.take();
                 }
             }
         }
@@ -168,63 +199,87 @@ impl<T> Iterator for StreamTakeIterator<'_, T> {
 mod tests {
     use super::*;
 
+    #[derive(Clone, PartialEq, Debug, Default)]
+    struct TestWrapper {
+        value: i32,
+    }
+
+    impl LineSeparator for TestWrapper {
+        type Item = TestWrapper;
+
+        fn is_line_separator(x: &Self::Item) -> bool {
+            x.value == -1
+        }
+    }
+
+    fn generate_test_stream(len: i32) -> Stream<TestWrapper> {
+        Stream::from(
+            (1..=len)
+                .map(|x| TestWrapper { value: x })
+                .collect::<Vec<TestWrapper>>(),
+        )
+    }
+
     #[test]
     fn from_vec() {
-        let s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        assert_eq!(6, s.buffer.len());
+        let s = generate_test_stream(10);
+        assert_eq!(10, s.buffer.len());
     }
 
     #[test]
     fn take_until() {
-        let mut s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        let t = s.take_until_iter(|&x| x == 3).last();
-        assert_eq!(Some(2), t);
+        let mut s = generate_test_stream(10);
+        let t = s.take_until_iter(|x| x.value == 3).last();
+        assert_eq!(Some(TestWrapper { value: 2 }), t);
     }
 
     #[test]
     fn take_while() {
-        let mut s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        let t = s.take_while_iter(|&x| x < 3).last();
-        assert_eq!(Some(2), t);
+        let mut s = generate_test_stream(10);
+        let t = s.take_while_iter(|x| x.value < 3).last();
+        assert_eq!(Some(TestWrapper { value: 2 }), t);
     }
 
     #[test]
     fn peek_expect() {
-        let s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        assert_eq!(true, s.peek_expect(|&x| x == 1));
-        assert_eq!(false, s.peek_expect(|&x| x == 2));
+        let s = generate_test_stream(10);
+        assert_eq!(true, s.peek_expect(|x| x.value == 1));
+        assert_eq!(false, s.peek_expect(|x| x.value == 2));
     }
 
     #[test]
     fn peek() {
-        let s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        assert_eq!(Some(1), s.peek());
+        let s = generate_test_stream(10);
+        assert_eq!(Some(TestWrapper { value: 1 }), s.peek());
     }
 
     #[test]
     fn peek_n() {
-        let s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        assert_eq!(Some(2), s.peek_n(1));
+        let s = generate_test_stream(10);
+        assert_eq!(Some(TestWrapper { value: 2 }), s.peek_n(1));
     }
     #[test]
     fn peek_n_expect() {
-        let s = Stream::from(vec![1, 2, 3, 4, 5, 6]);
-        assert_eq!(true, s.peek_n_expect(1, |x| *x == 2));
+        let s = generate_test_stream(10);
+        assert_eq!(true, s.peek_n_expect(1, |x| x.value == 2));
     }
 
     #[test]
     fn take() {
-        let mut s = Stream::from(vec![1, 2]);
-        assert_eq!(Some(1), s.take());
-        assert_eq!(Some(2), s.take());
+        let mut s = generate_test_stream(2);
+        assert_eq!(Some(TestWrapper { value: 1 }), s.take());
+        assert_eq!(Some(TestWrapper { value: 2 }), s.take());
         assert_eq!(None, s.take());
     }
 
     #[test]
     fn take_if() {
-        let mut s = Stream::from(vec![1, 2]);
-        assert_eq!(None, s.take_if_fn(|&x| x == 2));
-        assert_eq!(Some(1), s.take());
-        assert_eq!(Some(2), s.take_if_fn(|&x| x == 2));
+        let mut s = generate_test_stream(2);
+        assert_eq!(None, s.take_if_fn(|x| x.value == 2));
+        assert_eq!(Some(TestWrapper { value: 1 }), s.take());
+        assert_eq!(
+            Some(TestWrapper { value: 2 }),
+            s.take_if_fn(|x| x.value == 2)
+        );
     }
 }

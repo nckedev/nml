@@ -1,11 +1,9 @@
 #![allow(dead_code)]
 
-use crate::span::Span;
+use crate::{span::Span, stream::LineSeparator};
 use std::fmt::Display;
 
-use crate::source_char::SourceIndex;
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum TokenKind {
     //litterals
     String(String),
@@ -102,6 +100,7 @@ pub enum TokenKind {
     //msc
     Trivia(TokenTrivia),
     Error(TokenError),
+    #[default]
     Empty,
 }
 
@@ -156,10 +155,18 @@ pub enum TokenTrivia {
 }
 
 /// Token
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
+}
+
+impl LineSeparator for Token {
+    type Item = Token;
+
+    fn is_line_separator(x: &Self::Item) -> bool {
+        x.kind == TokenKind::Trivia(TokenTrivia::EOL)
+    }
 }
 
 impl Token {

@@ -1,6 +1,8 @@
 use std::fmt::Display;
 
-#[derive(Copy, Clone, Debug)]
+use crate::stream::LineSeparator;
+
+#[derive(Copy, Clone, Debug, Eq, Default)]
 pub(crate) struct SourceChar {
     pub ch: char,
     pub index: SourceIndex,
@@ -36,6 +38,14 @@ impl SourceChar {
     }
 }
 
+impl LineSeparator for SourceChar {
+    type Item = SourceChar;
+
+    fn is_line_separator(x: &Self::Item) -> bool {
+        x.ch == '\n'
+    }
+}
+
 impl PartialEq for SourceChar {
     fn eq(&self, other: &Self) -> bool {
         self.ch == other.ch
@@ -51,10 +61,27 @@ impl From<char> for SourceChar {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct SourceIndex {
     pub row: usize,
     pub col: usize,
+}
+
+impl SourceIndex {
+    pub fn step_row(&mut self) {
+        self.row += 1;
+        self.col = 0;
+    }
+
+    pub fn step_col(&mut self) {
+        self.col += 1;
+    }
+}
+
+impl Default for SourceIndex {
+    fn default() -> Self {
+        Self { row: 1, col: 0 }
+    }
 }
 
 impl From<(usize, usize)> for SourceIndex {
@@ -70,6 +97,14 @@ impl From<(i32, usize)> for SourceIndex {
         Self {
             row: value.0 as usize,
             col: value.1,
+        }
+    }
+}
+impl From<(i32, i32)> for SourceIndex {
+    fn from(value: (i32, i32)) -> Self {
+        Self {
+            row: value.0 as usize,
+            col: value.1 as usize,
         }
     }
 }
