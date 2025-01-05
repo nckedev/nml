@@ -84,6 +84,32 @@ where
         v
     }
 
+    /// takes a element of the stream,
+    /// returns Ok if there is an element
+    /// Err if not
+    pub fn take_or<E>(&mut self, err: E) -> Result<T, E> {
+        if let Some(x) = self.take() {
+            return Ok(x);
+        };
+        return Err(err);
+    }
+
+    pub fn take_expecting_or_fn(
+        &mut self,
+        expecting: impl FnOnce(&T) -> bool,
+        callback: impl FnOnce(&T),
+    ) -> Option<T> {
+        if let Some(t) = self.take() {
+            if expecting(&t) {
+                return Some(t);
+            } else {
+                callback(&t);
+                return None;
+            }
+        }
+        None
+    }
+
     pub fn take_if(&mut self, pred: T) -> Option<T>
     where
         T: PartialEq,
@@ -102,6 +128,15 @@ where
             }
         }
         None
+    }
+
+    pub fn take_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E> {
+        let Some(v) = self.take() else {
+            // TODO: should not panic?
+            panic!("take_expecting -> no more tokens in stream")
+        };
+
+        pred(v)
     }
 
     pub fn take_until_iter(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {

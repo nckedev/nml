@@ -179,7 +179,7 @@ impl Lexer {
                 span: (start.into(), (self.stream.index).into()).into(),
             };
 
-            println!("{:?}", token);
+            // println!("{:?}", token);
 
             // println!("##### {:?} {:?}", start, self.stream.index);
             tokens.push(token);
@@ -274,16 +274,12 @@ fn match_litteral(str: &str) -> TokenKind {
     match str {
         "let" => TokenKind::Let,
         "if" => TokenKind::If,
-        // "do" => TokenKind::Do,
         "else" => TokenKind::Else,
-        // "end" => TokenKind::End,
         "for" => TokenKind::For,
         "mut" => TokenKind::Mut,
         "ref" => TokenKind::Ref,
         "fn" => TokenKind::Function,
         "interface" => TokenKind::Interface,
-        "trait" => TokenKind::Trait,
-        "variant" => TokenKind::Variant,
         "const" => TokenKind::Const,
         "macro" => TokenKind::Macro,
         "todo" => TokenKind::Todo,

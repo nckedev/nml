@@ -1,54 +1,76 @@
-pub(crate) struct ScopeGenerator {
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hasher,
+};
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub(crate) struct ScopeId(u64);
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub(crate) struct TypeId(u64);
+
+pub(crate) struct IdGenerator {
     current: u64,
 }
 
-impl ScopeGenerator {
-    pub fn new() -> ScopeGenerator {
-        Self { current: 0 }
+impl IdGenerator {
+    pub fn new(seed: u64) -> Self {
+        Self { current: seed }
     }
 
-    pub fn next(&mut self) -> Scope {
-        self.current += 1;
-        Scope {
-            id: self.current,
-            parent_id: None,
-        }
+    fn next(&mut self) -> u64 {
+        self.current + 1
     }
 
-    pub fn next_with_parent(&mut self, scope: Scope) -> Scope {
-        self.current += 1;
-        Scope {
-            id: self.current,
-            parent_id: Some(scope.id),
-        }
+    pub fn next_scope(&mut self) -> ScopeId {
+        ScopeId(self.next())
+    }
+
+    pub fn next_type(&mut self) -> TypeId {
+        TypeId(self.next())
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct Scope {
-    id: u64,
-    parent_id: Option<u64>,
+pub trait NextScopeId {
+    fn next_scope_id(&mut self) -> ScopeId;
 }
 
-impl Scope {
-    fn new() -> Self {
+impl NextScopeId for IdGenerator {
+    fn next_scope_id(&mut self) -> ScopeId {
+        ScopeId(self.next())
+    }
+}
+
+// --- old
+
+struct ScopeTree {
+    scope: ScopeId,
+    children: HashMap<ScopeId, ScopeTree>,
+}
+
+impl ScopeTree {
+    fn root(id: ScopeId) -> Self {
         Self {
-            id: 0,
-            parent_id: Some(0),
+            scope: id,
+            children: HashMap::new(),
         }
     }
-
-    fn new_child(&self) -> Self {
-        Self {
-            id: self.id + 1,
-            parent_id: self.parent_id,
-        }
+    fn is_parent_of(&self, child: ScopeId, parent: ScopeId) -> bool {
+        false
     }
 
-    fn has_parent(&self) -> bool {
-        match self.parent_id {
-            Some(_) => true,
-            None => false,
+    fn get_parents(&self, child: ScopeId) -> ScopeId {
+        ScopeId(0)
+    }
+
+    fn find_child(&self, needle: ScopeId) -> Option<&ScopeTree> {
+        if self.children.contains_key(&needle) {
+            self.children.get(&needle)
+        } else {
+            for child in self.children.iter() {
+                return child.1.find_child(needle);
+            }
+            None
         }
     }
 }

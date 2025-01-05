@@ -87,6 +87,16 @@ impl Diagnostics {
     pub fn push(&mut self, entry: DiagEntry) {
         self.list.push(entry)
     }
+    pub fn push_message(&mut self, severity: DiagSeverity, message: &String) {
+        let m = DiagEntry::new(
+            String::from(""),
+            String::from(""),
+            severity,
+            Span::from(((0, 0).into(), (0, 0).into())),
+            String::from(message),
+        );
+        self.list.push(m);
+    }
 
     pub fn push_expected_token_missmatch(
         &mut self,

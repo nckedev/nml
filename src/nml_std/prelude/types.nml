@@ -1,0 +1,7 @@
+mod types {
+		@builtin
+		type int = struct {}
+
+		@builtin
+		type float = struct {}
+}
