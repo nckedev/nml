@@ -15,7 +15,7 @@ where
     pub index: SourceIndex,
 }
 
-impl<'a, T> Stream<T>
+impl<T> Stream<T>
 where
     T: Clone,
     T: PartialEq,
@@ -24,7 +24,7 @@ where
 {
     /// Returns the next value without moving forward forward in the stream
     pub fn peek(&self) -> Option<T> {
-        if let Some(v) = self.buffer.get(0) {
+        if let Some(v) = self.buffer.front() {
             return Some(v.clone());
         }
         None
@@ -39,7 +39,7 @@ where
     }
 
     pub fn peek_expect(&self, pred: fn(&T) -> bool) -> bool {
-        if let Some(v) = self.buffer.get(0) {
+        if let Some(v) = self.buffer.front() {
             if pred(v) {
                 return true;
             }
@@ -58,21 +58,15 @@ where
 
     /// peeks at the next element and steps forward if it matches,
     /// returns true if a matching element was found
-    pub fn peek_and_step_if(&mut self, pred: T) -> bool
+    pub fn peek_and_step_if(&mut self, pred: impl Into<T>) -> bool
     where
         T: PartialEq,
     {
-        match self.take_if(pred) {
-            Some(_) => true,
-            None => false,
-        }
+        self.take_if(pred.into()).is_some()
     }
 
     pub fn peek_and_step_if_fn(&mut self, pred: fn(&T) -> bool) -> bool {
-        match self.take_if_fn(pred) {
-            Some(_) => true,
-            None => false,
-        }
+        self.take_if_fn(pred).is_some()
     }
 
     /// takes the elemnt at the front and returns it
@@ -91,7 +85,7 @@ where
         if let Some(x) = self.take() {
             return Ok(x);
         };
-        return Err(err);
+        Err(err)
     }
 
     pub fn take_expecting_or_fn(
@@ -114,7 +108,7 @@ where
     where
         T: PartialEq,
     {
-        if let Some(v) = self.buffer.get(0) {
+        if let Some(v) = self.buffer.front() {
             if *v == pred {
                 return self.take();
             }
@@ -122,7 +116,7 @@ where
         None
     }
     pub fn take_if_fn(&mut self, pred: fn(&T) -> bool) -> Option<T> {
-        if let Some(v) = self.buffer.get(0) {
+        if let Some(v) = self.buffer.front() {
             if pred(v) {
                 return self.take();
             }
@@ -215,7 +209,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(x) = self.stream.buffer.get(0) {
+        if let Some(x) = self.stream.buffer.front() {
             if self.invert_pred {
                 if !(self.pred)(x) {
                     return self.stream.take();
@@ -278,8 +272,8 @@ mod tests {
     #[test]
     fn peek_expect() {
         let s = generate_test_stream(10);
-        assert_eq!(true, s.peek_expect(|x| x.value == 1));
-        assert_eq!(false, s.peek_expect(|x| x.value == 2));
+        assert!(s.peek_expect(|x| x.value == 1));
+        assert!(!s.peek_expect(|x| x.value == 2));
     }
 
     #[test]
@@ -296,7 +290,7 @@ mod tests {
     #[test]
     fn peek_n_expect() {
         let s = generate_test_stream(10);
-        assert_eq!(true, s.peek_n_expect(1, |x| x.value == 2));
+        assert!(s.peek_n_expect(1, |x| x.value == 2));
     }
 
     #[test]

@@ -11,6 +11,7 @@ mod std;
 mod stream;
 mod table;
 mod token;
+mod vm;
 
 use ::std::{
     cell::RefCell,
@@ -43,14 +44,14 @@ struct Args {
 
 fn main() -> Result<(), LexerErr> {
     // testing trees
-    let root = Tree::new();
-    root.add_child(AstNode::Expr { ident: 2 });
+    // let root = Tree::new();
+    // root.add_child(AstNode::Expr { ident: 2 });
     // end of testing
 
-    let paths = fs::read_dir("./nml_std/prelude/").unwrap();
-    for p in paths {
-        println!("{p:?}");
-    }
+    // let paths = fs::read_dir("./nml_std/prelude/").unwrap();
+    // for p in paths {
+    //     println!("{p:?}");
+    // }
     let mut id_generator = IdGenerator::new(0);
 
     println!("tokenizing");

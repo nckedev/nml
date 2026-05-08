@@ -113,7 +113,7 @@ impl Diagnostics {
         self.list.push(entry);
     }
 
-    pub fn iter(&self) -> Iter<DiagEntry> {
+    pub fn iter(&'_ self) -> Iter<'_, DiagEntry> {
         self.list.iter()
     }
 }

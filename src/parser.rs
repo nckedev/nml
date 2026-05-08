@@ -73,7 +73,7 @@ impl<'a> Parser<'a> {
     }
 
     fn print_tree(node: &Node) {
-        let _ = match node {
+        match node {
             Node::LetStmt { expr: value, .. } => Self::print_tree(value),
             Node::BinaryExpr {
                 left,
@@ -186,7 +186,7 @@ impl<'a> Parser<'a> {
                 let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
 
                 //take the '=' token
-                let _ = self.stream.take_expecting(expected_token::assign)?;
+                self.stream.take_expecting(expected_token::assign)?;
 
                 Node::LetStmt {
                     parent: scope,
@@ -204,7 +204,7 @@ impl<'a> Parser<'a> {
                     TokenKind::Identifier(ident) => Node::ModuleDeclr {
                         scope: s,
                         ident,
-                        body: vec![Box::new(self.parse_stmt(s)?)],
+                        body: vec![self.parse_stmt(s)?],
                     },
                     _ => {
                         self.diagnostics.push_expected_token_missmatch(
@@ -313,7 +313,7 @@ pub enum Node {
     ModuleDeclr {
         scope: ScopeId,
         ident: String,
-        body: Vec<Box<Node>>,
+        body: Vec<Node>,
     },
     LetStmt {
         parent: ScopeId,
@@ -383,7 +383,7 @@ impl Display for Node {
 
 #[derive(Debug)]
 pub(crate) struct AST {
-    nodes: Vec<Box<Node>>,
+    nodes: Vec<Node>,
 }
 
 impl AST {
@@ -392,7 +392,7 @@ impl AST {
     }
 
     pub fn add(&mut self, node: Node) {
-        self.nodes.push(Box::new(node))
+        self.nodes.push(node)
     }
 
     pub fn print(&self) {
@@ -557,31 +557,21 @@ mod expected_token {
     }
 
     pub fn is_operator(t: &Token) -> bool {
-        match t.kind {
-            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Div => true,
-            _ => false,
-        }
+        matches!(
+            t.kind,
+            TokenKind::Plus | TokenKind::Minus | TokenKind::Mul | TokenKind::Div
+        )
     }
     pub fn operator_addative(t: &Token) -> bool {
-        match t.kind {
-            TokenKind::Plus | TokenKind::Minus => true,
-            _ => false,
-        }
+        matches!(t.kind, TokenKind::Plus | TokenKind::Minus)
     }
 
     pub fn operator_multiplicative(t: &Token) -> bool {
-        match t.kind {
-            TokenKind::Mul | TokenKind::Div | TokenKind::Mod => true,
-            _ => false,
-        }
+        matches!(t.kind, TokenKind::Mul | TokenKind::Div | TokenKind::Mod)
     }
 
     pub fn identifier(t: &Token) -> bool {
-        if let TokenKind::Identifier(_) = t.kind {
-            true
-        } else {
-            false
-        }
+        matches!(t.kind, TokenKind::Identifier(_))
     }
 
     #[cfg(test)]

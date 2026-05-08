@@ -39,6 +39,8 @@ pub enum TokenKind {
     SelfType,
     Module,
     Void,
+    Pub,
+    Opaque,
     DBG,
 
     If,
@@ -196,6 +198,8 @@ impl Display for TokenKind {
             TokenKind::Minus => write!(f, "-"),
             TokenKind::Mul => write!(f, "*"),
             TokenKind::Mod => write!(f, "%"),
+            TokenKind::Pub => write!(f, "pub"),
+            TokenKind::Opaque => write!(f, "opaque"),
         }
     }
 }

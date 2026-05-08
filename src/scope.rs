@@ -64,13 +64,14 @@ impl ScopeTree {
     }
 
     fn find_child(&self, needle: ScopeId) -> Option<&ScopeTree> {
-        if self.children.contains_key(&needle) {
-            self.children.get(&needle)
-        } else {
-            for child in self.children.iter() {
-                return child.1.find_child(needle);
-            }
-            None
-        }
+        return None;
+        // if self.children.contains_key(&needle) {
+        //     self.children.get(&needle)
+        // } else {
+        //     for child in self.children.iter() {
+        //         return child.1.find_child(needle);
+        //     }
+        //     None
+        // }
     }
 }

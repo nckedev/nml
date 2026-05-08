@@ -22,16 +22,10 @@ impl TypeTable {
     }
 
     pub fn contains_by_full_name(&self, key: &str) -> bool {
-        match self.get_by_full_name(key) {
-            Some(_) => true,
-            _ => false,
-        }
+        self.get_by_full_name(key).is_some()
     }
     pub fn contains(&self, key: &TypeId) -> bool {
-        match self.data.get(key) {
-            Some(_) => true,
-            _ => false,
-        }
+        self.data.contains_key(key)
     }
 
     pub fn get(&self, id: TypeId) -> Option<&TypeInfo> {

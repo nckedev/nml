@@ -1,8 +1,5 @@
-use std::usize;
-
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
-use crate::span::Span;
 use crate::stream::Stream;
 use crate::token::NumberToken;
 use crate::token::Token;
@@ -25,9 +22,10 @@ impl Lexer {
         let mut sourcechars: Vec<SourceChar> = Vec::with_capacity(code.len());
 
         //transform chars to SourceChars to get the index of every char
-        let mut row = 1 as usize;
-        let mut col = 0 as usize;
+        let mut row = 1_usize;
+        let mut col = 0_usize;
 
+        // TODO: Remake this as an iterator
         for c in code.chars() {
             sourcechars.push(SourceChar {
                 ch: c,
@@ -73,7 +71,7 @@ impl Lexer {
                 } => {
                     let litteral = self
                         .stream
-                        .take_while_iter(|x| x.is_alpha_or_number())
+                        .take_while_iter(SourceChar::is_alpha_or_number)
                         .map(|x| x.ch)
                         .collect::<String>();
 
@@ -88,7 +86,7 @@ impl Lexer {
                 SourceChar { ch: '_', .. } => TokenKind::Discard,
                 // = or == or =>
                 SourceChar { ch: '=', .. } => {
-                    if self.stream.peek_and_step_if(SourceChar::from('=')) {
+                    if self.stream.peek_and_step_if('=') {
                         TokenKind::Eq
                     } else if self.stream.peek_and_step_if(SourceChar::from('>')) {
                         TokenKind::Lambda
@@ -176,7 +174,7 @@ impl Lexer {
 
             let token = Token {
                 kind: token_kind,
-                span: (start.into(), (self.stream.index).into()).into(),
+                span: (start, self.stream.index).into(),
             };
 
             // println!("{:?}", token);
@@ -191,7 +189,7 @@ impl Lexer {
         let last_index = tokens.len() - 1;
         if let Some(t) = tokens.get_mut(last_index) {
             // println!("{:#?}", t);
-            t.span.end = (0 as usize, last_index).into();
+            t.span.end = (0_usize, last_index).into();
         }
         Ok(tokens)
     }
@@ -203,7 +201,7 @@ impl Lexer {
         let mut has_suffix = false;
 
         // push the first char that has already been taken by the main loop
-        number_buf.push(sc.clone());
+        number_buf.push(*sc);
 
         while let Some(v) = self.stream.peek() {
             match v {
@@ -231,7 +229,7 @@ impl Lexer {
                 SourceChar {
                     ch: '0'..='9',
                     index: _,
-                } if has_suffix == false => {
+                } if !has_suffix => {
                     number_buf.push(v);
                     self.stream.take();
                 }
@@ -243,7 +241,7 @@ impl Lexer {
             };
         }
 
-        let suffix: Option<String> = if suffix_buf.len() > 0 {
+        let suffix: Option<String> = if !suffix_buf.is_empty() {
             Some(suffix_buf.iter().map(|x| x.ch).collect::<String>())
         } else {
             None
@@ -256,18 +254,15 @@ impl Lexer {
     }
 }
 
-fn strip_spacer(nr: &Vec<SourceChar>) -> Vec<SourceChar> {
+fn strip_spacer(nr: &[SourceChar]) -> Vec<SourceChar> {
     nr.iter()
-        .map(|x| *x)
+        .copied()
         .filter(|x| x.ch != '_')
         .collect::<Vec<SourceChar>>()
 }
 
 fn is_trivia(c: char) -> bool {
-    match c {
-        ' ' | '\t' | '\n' => true,
-        _ => false,
-    }
+    matches!(c, ' ' | '\t' | '\n')
 }
 
 fn match_litteral(str: &str) -> TokenKind {
@@ -286,6 +281,8 @@ fn match_litteral(str: &str) -> TokenKind {
         "panic" => TokenKind::Panic,
         "self" => TokenKind::Self_,
         "mod" => TokenKind::Module,
+        "type" => TokenKind::Type,
+        "opaque" => TokenKind::Opaque,
         _ => TokenKind::Identifier(str.to_string()),
     }
 }
@@ -315,14 +312,14 @@ mod lexer_tests {
         match l.tokenize() {
             Ok(value) => value
                 .iter()
-                .map(|t| t.clone())
-                .filter(|tok| {
+                .filter(|&tok| {
                     if skip_whitespace {
                         tok.kind != SPC
                     } else {
                         true
                     }
                 })
+                .cloned()
                 .collect(),
             Err(_) => vec![],
         }
@@ -404,7 +401,7 @@ mod lexer_tests {
     #[test]
     fn new_lines() {
         let tokenized = token_vector("\n", false);
-        let actual = tokenized.get(0).unwrap();
+        let actual = tokenized.first().unwrap();
         assert_eq!(TokenKind::Trivia(TokenTrivia::EOL), actual.kind);
     }
 
