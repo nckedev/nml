@@ -23,24 +23,34 @@ type EnumType = [
     Variant4 { a Int, b Int }
 ]
 
+[1, 2, 3,] 
+$ List.map { a => a + 1 }
+$ List.fiter { a => a > 0 }
+
 trait MyTrait a =
     fn sort = List a, fn a,a -> [Gt, Lt, Eq] -> List a
 
 let a = 1
+let a = { Int => 1 }
 let b = { a 3, my_string "sdfsf" }
 let c = (3, 3)
 let d = c.0
-
-fn my_func = { a Int, b Int -> Int => 
+let e = { () : Int =>
+    let a = 2
+    let b = 3
     a + b
 }
 
-fn my_f = a Int -> b Int -> Int => {
+let my_func = { a Int, b Int -> Int => 
+    a + b
+}
+
+let my_f = a Int -> b Int -> Int => {
     a + b
 }
 
 let my_func2 = { 
-    a, b : Int -> Int -> Int =>
+    a, b : { x: Int }* -> Int -> Int =>
         if a == 0 and b > 0 then
             a + b
         else if a > 0

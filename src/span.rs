@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::source_char::SourceIndex;
 
-#[derive(PartialEq, Debug, Clone, Default)]
+#[derive(PartialEq, Debug, Clone, Copy, Default)]
 pub(crate) struct Span {
     pub start: SourceIndex,
     pub end: SourceIndex,

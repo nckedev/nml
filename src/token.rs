@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{span::Span, stream::LineSeparator, UnexpectedTokenErr};
+use crate::{span::Span, stream::LineSeparator};
 
 use std::fmt::Display;
 
@@ -250,20 +250,8 @@ impl Token {
     pub fn new(kind: TokenKind, span: Span) -> Self {
         Token { kind, span }
     }
+
     fn empty() -> Self {
         Self::new(TokenKind::Empty, Span::default())
-    }
-    pub fn expected_token_or_err<E: UnexpectedTokenErr>(
-        &self,
-        expected: fn(&Token) -> bool,
-    ) -> Result<&Self, E> {
-        if expected(self) {
-            Ok(self)
-        } else {
-            Err(E::unexpected_token(
-                self.clone(),
-                "not expected".to_string(),
-            ))
-        }
     }
 }

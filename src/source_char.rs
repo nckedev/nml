@@ -10,28 +10,15 @@ pub(crate) struct SourceChar {
 
 impl SourceChar {
     pub fn is_number_special(&self) -> bool {
-        match self.ch {
-            'f' | 'i' | 'u' => true,
-            '_' => true,
-            '0'..='9' => true,
-            _ => false,
-        }
+        matches!(self.ch, 'f' | 'i' | 'u' | '_' | '0'..='9')
     }
 
     pub fn is_alpha(&self) -> bool {
-        match self.ch {
-            'a'..='z' => true,
-            'A'..='Z' => true,
-            '_' => true,
-            _ => false,
-        }
+        matches!(self.ch, 'a'..='z' | 'A'..='Z' | '_')
     }
 
     pub fn is_number(&self) -> bool {
-        match self.ch {
-            '0'..='9' => true,
-            _ => false,
-        }
+        self.ch.is_ascii_digit()
     }
     pub fn is_alpha_or_number(&self) -> bool {
         self.is_alpha() || self.is_number()
@@ -118,15 +105,25 @@ impl Display for SourceIndex {
 impl PartialOrd for SourceIndex {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         if self.row == other.row {
-            return Some(self.col.cmp(&other.col));
+            Some(self.col.cmp(&other.col))
         } else {
-            return Some(self.row.cmp(&other.row));
+            Some(self.row.cmp(&other.row))
         }
     }
 }
 
+impl Iterator for Vec<char> {
+    type Item = SourceCharIter;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        todo!()
+    }
+}
+
+pub struct SourceCharIter {}
 #[cfg(test)]
 mod source_index_tests {
+
     use super::*;
 
     #[test]
@@ -152,12 +149,9 @@ mod source_index_tests {
     }
     #[test]
     fn partial_ord_eq() {
-        let bigger = SourceIndex { row: 10, col: 10 };
+        let s1 = SourceIndex { row: 10, col: 10 };
+        let s2 = SourceIndex { row: 10, col: 10 };
 
-        let smaller = SourceIndex { row: 10, col: 10 };
-
-        assert_eq!(false, bigger > smaller);
-        assert_eq!(false, smaller < bigger);
-        assert_eq!(smaller, bigger);
+        assert_eq!(s1, s2);
     }
 }

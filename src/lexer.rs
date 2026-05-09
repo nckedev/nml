@@ -203,7 +203,7 @@ impl Lexer {
         // push the first char that has already been taken by the main loop
         number_buf.push(*sc);
 
-        while let Some(v) = self.stream.peek() {
+        while let Some(v) = self.stream.peek().copied() {
             match v {
                 SourceChar {
                     ch: 'a'..='z' | 'A'..='Z',

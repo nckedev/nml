@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::collections::VecDeque;
 
-use crate::source_char::SourceIndex;
+use crate::{diagnostics::DiagEntry, parser::NoMoreTokens, source_char::SourceIndex};
 pub trait LineSeparator {
     type Item;
     fn is_line_separator(x: &Self::Item) -> bool;
@@ -23,19 +23,13 @@ where
     T: LineSeparator<Item = T>,
 {
     /// Returns the next value without moving forward forward in the stream
-    pub fn peek(&self) -> Option<T> {
-        if let Some(v) = self.buffer.front() {
-            return Some(v.clone());
-        }
-        None
+    pub fn peek(&self) -> Option<&T> {
+        self.buffer.front()
     }
 
     /// peeks n steps ahead and returns the value without moving forward in the stream
-    pub fn peek_n(&self, steps: usize) -> Option<T> {
-        if let Some(v) = self.buffer.get(steps) {
-            return Some(v.clone());
-        }
-        None
+    pub fn peek_n(&self, steps: usize) -> Option<&T> {
+        self.buffer.get(steps)
     }
 
     pub fn peek_expect(&self, pred: fn(&T) -> bool) -> bool {
@@ -124,13 +118,23 @@ where
         None
     }
 
-    pub fn take_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E> {
+    pub fn take_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E>
+    where
+        E: TryInto<DiagEntry>,
+        E: NoMoreTokens,
+    {
         let Some(v) = self.take() else {
-            // TODO: should not panic?
-            panic!("take_expecting -> no more tokens in stream")
+            return Err(E::no_more_tokens());
         };
 
         pred(v)
+    }
+
+    pub fn peek_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E> {
+        let Some(v) = self.peek() else {
+            panic!("TODO convert to E");
+        };
+        pred(v.clone())
     }
 
     pub fn take_until_iter(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
@@ -279,13 +283,13 @@ mod tests {
     #[test]
     fn peek() {
         let s = generate_test_stream(10);
-        assert_eq!(Some(TestWrapper { value: 1 }), s.peek());
+        assert_eq!(Some(&TestWrapper { value: 1 }), s.peek());
     }
 
     #[test]
     fn peek_n() {
         let s = generate_test_stream(10);
-        assert_eq!(Some(TestWrapper { value: 2 }), s.peek_n(1));
+        assert_eq!(Some(&TestWrapper { value: 2 }), s.peek_n(1));
     }
     #[test]
     fn peek_n_expect() {
