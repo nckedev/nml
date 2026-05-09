@@ -20,7 +20,6 @@ pub struct Parser<'a> {
     stream: Stream<Token>,
     diagnostics: &'a mut Diagnostics,
     id_generator: &'a mut IdGenerator,
-    type_table: TypeTable,
     // use_table: Vec<String>,
     // scope_table: Vec<String>,
 }
@@ -64,27 +63,15 @@ impl<'a> Parser<'a> {
             stream: Stream::from(t),
             diagnostics,
             id_generator,
-            type_table: TypeTable::new(),
         }
-    }
-
-    // fn print(&self) {
-    //     for x in &self.stream {
-    //         debug::print(&x);
-    //     }
-    // }
-
-    pub fn get_diagnostics(&self) -> &Diagnostics {
-        &self.diagnostics
     }
 
     pub fn parse(&mut self) -> Result<Ast<Untyped>, ParseErr> {
         Log::info("Parsing");
-        let root = self.id_generator.next_scope();
 
         //self.print();
 
-        let b = self.parse_stmt(root);
+        let b = self.parse_stmt();
         let mut ast = Ast::new();
         // debug::print(&b);
         ast.add(b?);
@@ -164,7 +151,7 @@ impl<'a> Parser<'a> {
     //if statement
     //for loop
     //return
-    fn parse_stmt(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_stmt(&mut self) -> Result<Node, ParseErr> {
         // let Some(stmt_token) = self.stream.take() else {
         //     return Err(ParseErr::UnexpectedEndOfFile);
         // };
@@ -174,8 +161,8 @@ impl<'a> Parser<'a> {
         // debug::print(&token);
 
         let res = match stmt.kind {
-            TokenKind::Let => self.parse_let_binding(scope)?,
-            TokenKind::Module => self.parse_module_decl(scope)?,
+            TokenKind::Let => self.parse_let_binding()?,
+            TokenKind::Module => self.parse_module_decl()?,
             TokenKind::Type => {
                 // TODO: type declr, and properties can have attributes
                 // type RecordType = {
@@ -199,10 +186,10 @@ impl<'a> Parser<'a> {
                     .take_expecting(expected_token::type_classification)?;
 
                 let type_class_body = match token.kind {
-                    TokenKind::OpenCurl => self.parse_struct(scope)?,
-                    TokenKind::OpenBracket => self.parse_enum(scope)?,
-                    TokenKind::OpenParen => self.parse_tuple(scope)?,
-                    // TokenKind::Interface => self.parse_interface(scope)?,
+                    TokenKind::OpenCurl => self.parse_struct()?,
+                    TokenKind::OpenBracket => self.parse_enum()?,
+                    TokenKind::OpenParen => self.parse_tuple()?,
+                    // TokenKind::Interface => self.parse_interface()?,
                     _ => unreachable!(),
                 };
 
@@ -214,18 +201,18 @@ impl<'a> Parser<'a> {
                     body: Box::new(type_class_body),
                 }
             }
-            TokenKind::Trivia(TokenTrivia::EOL) => self.parse_stmt(scope)?,
+            TokenKind::Trivia(TokenTrivia::EOL) => self.parse_stmt()?,
             TokenKind::Trivia(TokenTrivia::EOF) => Node::EOF,
             x => {
                 self.diagnostics
                     .push(DiagEntry::empty("invalid token".to_string()));
-                self.parse_stmt(scope)?
+                self.parse_stmt()?
             }
         };
         Ok(res)
     }
 
-    fn parse_let_binding(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_let_binding(&mut self) -> Result<Node, ParseErr> {
         // take and discard the let keyword
         let _ = self.stream.take();
         let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
@@ -241,7 +228,7 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_module_decl(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_module_decl(&mut self) -> Result<Node, ParseErr> {
         let _ = self.stream.take();
         let token = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
 
@@ -249,7 +236,7 @@ impl<'a> Parser<'a> {
         match token.kind {
             TokenKind::Identifier(ident) => Ok(Node::ModuleDeclr {
                 ident,
-                body: vec![self.parse_stmt(s)?],
+                body: vec![self.parse_stmt()?],
             }),
             _ => {
                 self.diagnostics.push_expected_token_missmatch(
@@ -265,22 +252,22 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_type_decl_body(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_type_decl_body(&mut self) -> Result<Node, ParseErr> {
         let token = self
             .stream
             .take_expecting(expected_token::type_classification)?;
 
         let body = match token.kind {
-            TokenKind::OpenCurl => self.parse_struct(scope)?,
-            TokenKind::OpenBracket => self.parse_enum(scope)?,
-            TokenKind::OpenParen => self.parse_tuple(scope)?,
+            TokenKind::OpenCurl => self.parse_struct()?,
+            TokenKind::OpenBracket => self.parse_enum()?,
+            TokenKind::OpenParen => self.parse_tuple()?,
             // TokenKind::Interface => self.parse_interface(scope)?,
             _ => unreachable!(),
         };
         Ok(Node::Invalid)
     }
 
-    fn parse_struct(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_struct(&mut self) -> Result<Node, ParseErr> {
         //pasrse the
         //{
         //  a type,
@@ -295,13 +282,13 @@ impl<'a> Parser<'a> {
             name_ident: Identifier { value: ident, span },
         })
     }
-    fn parse_interface(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_interface(&mut self) -> Result<Node, ParseErr> {
         todo!()
     }
-    fn parse_enum(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_enum(&mut self) -> Result<Node, ParseErr> {
         todo!("enums nyi")
     }
-    fn parse_tuple(&mut self, scope: ScopeId) -> Result<Node, ParseErr> {
+    fn parse_tuple(&mut self) -> Result<Node, ParseErr> {
         todo!("tuple nyi")
     }
 }
