@@ -47,14 +47,14 @@ impl DiagEntry {
             message,
         }
     }
-
-    pub fn expected(found: &Token, expected: String) {}
 }
 
 impl Display for DiagEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "---")?;
-        writeln!(f, "{}", self.message)?;
+        writeln!(f, "<FILE> @ {}", self.span.start)?;
+        writeln!(f, "{}: ", self.severity)?;
+        writeln!(f, "\t{}", self.message)?;
         writeln!(f, "---")?;
         Ok(())
     }
@@ -94,6 +94,16 @@ pub enum DiagSeverity {
     Error,
     Warn,
     Info,
+}
+
+impl Display for DiagSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DiagSeverity::Error => write!(f, "ERROR"),
+            DiagSeverity::Warn => write!(f, "WARNING"),
+            DiagSeverity::Info => write!(f, "INFO"),
+        }
+    }
 }
 
 struct DiagEntryBuilder {}
@@ -141,6 +151,12 @@ impl Diagnostics {
 
     pub fn iter(&'_ self) -> Iter<'_, DiagEntry> {
         self.list.iter()
+    }
+
+    pub fn print(&self) {
+        for diag in &self.list {
+            println!("{diag}");
+        }
     }
 }
 

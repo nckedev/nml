@@ -73,11 +73,7 @@ fn main() -> Result<(), LexerErr> {
     //     r.print();
     // println!(" tree: {:?}", r)
 
-    let diagnostics = p.get_diagnostics();
-    println!("diagnostics: ");
-    for d in diagnostics.iter() {
-        println!("{d}");
-    }
+    diagnostics.print();
 
     Ok(())
 }
