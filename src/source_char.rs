@@ -112,14 +112,6 @@ impl PartialOrd for SourceIndex {
     }
 }
 
-impl Iterator for Vec<char> {
-    type Item = SourceCharIter;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        todo!()
-    }
-}
-
 pub struct SourceCharIter {}
 #[cfg(test)]
 mod source_index_tests {

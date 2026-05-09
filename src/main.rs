@@ -14,7 +14,7 @@ mod table;
 mod token;
 mod vm;
 
-use crate::parser::*;
+use crate::{diagnostics::Diagnostics, parser::*};
 use lexer::{Lexer, LexerErr};
 use log::Log;
 use scope::IdGenerator;
@@ -53,15 +53,15 @@ fn main() -> Result<(), LexerErr> {
     println!("tokenizing");
     let test_str1 = "let abc = 123 + 1 * 3";
     // let test_str1 = "mod test\nlet a = 123 + 11 * 2 +3";
-
-    let mut t = Lexer::new(test_str1);
+    let mut diagnostics = Diagnostics::new();
+    let mut t = Lexer::new(test_str1, &mut diagnostics);
     let tokens = t.tokenize()?;
 
     for t in &tokens {
         println!("{t}")
     }
 
-    let mut p = Parser::new(tokens, &mut id_generator);
+    let mut p = Parser::new(tokens, &mut id_generator, &mut diagnostics);
     match p.parse() {
         Ok(x) => {
             Log::debug("printing tree");

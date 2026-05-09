@@ -17,7 +17,7 @@ use crate::{
 
 pub struct Parser<'a> {
     stream: Stream<Token>,
-    diagnostics: Diagnostics,
+    diagnostics: &'a mut Diagnostics,
     id_generator: &'a mut IdGenerator,
     type_table: TypeTable,
     // use_table: Vec<String>,
@@ -46,7 +46,11 @@ impl NoMoreTokens for ParseErr {
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: Vec<Token>, id_generator: &'a mut IdGenerator) -> Self {
+    pub fn new(
+        tokens: Vec<Token>,
+        id_generator: &'a mut IdGenerator,
+        diagnostics: &'a mut Diagnostics,
+    ) -> Self {
         //strip whitespace
         let t: Vec<Token> = tokens
             .into_iter()
@@ -57,7 +61,7 @@ impl<'a> Parser<'a> {
             .collect::<Vec<Token>>();
         Parser {
             stream: Stream::from(t),
-            diagnostics: Diagnostics::new(),
+            diagnostics,
             id_generator,
             type_table: TypeTable::new(),
         }
@@ -560,7 +564,8 @@ mod tests {
         ]
         .to_vec();
         let id = &mut IdGenerator::new(2);
-        let mut parser = Parser::new(tokens, id);
+        let diag = &mut Diagnostics::new();
+        let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
         node.simple_print();
         assert!(node.nodes.len() > 0);
@@ -584,7 +589,8 @@ mod tests {
         .to_vec();
 
         let id = &mut IdGenerator::new(2);
-        let mut parser = Parser::new(tokens, id);
+        let diag = &mut Diagnostics::new();
+        let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
         node.simple_print();
         assert!(node.nodes.len() > 0);

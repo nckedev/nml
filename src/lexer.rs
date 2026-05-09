@@ -1,3 +1,4 @@
+use crate::diagnostics::Diagnostics;
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
 use crate::stream::Stream;
@@ -7,8 +8,9 @@ use crate::token::TokenError::Unexpected;
 use crate::token::TokenKind;
 use crate::token::TokenTrivia;
 
-pub struct Lexer {
+pub struct Lexer<'a> {
     stream: Stream<SourceChar>,
+    diagnostics: &'a mut Diagnostics,
 }
 
 #[derive(Debug)]
@@ -17,8 +19,8 @@ pub struct LexerErr {
     // TODO: add token span
 }
 
-impl Lexer {
-    pub fn new(code: &str) -> Self {
+impl<'a> Lexer<'a> {
+    pub fn new(code: &str, diagnostics: &'a mut Diagnostics) -> Self {
         let mut sourcechars: Vec<SourceChar> = Vec::with_capacity(code.len());
 
         //transform chars to SourceChars to get the index of every char
@@ -55,6 +57,7 @@ impl Lexer {
         // return the lexer with SourceChars
         Lexer {
             stream: Stream::from(sourcechars),
+            diagnostics,
         }
     }
 
@@ -296,7 +299,8 @@ mod lexer_tests {
     const SPC: TokenKind = TokenKind::Trivia(TokenTrivia::Space);
 
     fn tokenkind_vector(code: &str, skip_whitespace: bool) -> Vec<TokenKind> {
-        let mut l = Lexer::new(code);
+        let mut diag = Diagnostics::new();
+        let mut l = Lexer::new(code, &mut diag);
         match l.tokenize() {
             Ok(value) => value
                 .iter()
@@ -308,7 +312,8 @@ mod lexer_tests {
     }
 
     fn token_vector(code: &str, skip_whitespace: bool) -> Vec<Token> {
-        let mut l = Lexer::new(code);
+        let mut diag = Diagnostics::new();
+        let mut l = Lexer::new(code, &mut diag);
         match l.tokenize() {
             Ok(value) => value
                 .iter()
