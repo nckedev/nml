@@ -1,0 +1,228 @@
+---
+source: src/lexer.rs
+expression: actual
+---
+[
+    Token {
+        kind: Function,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 0,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 2,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "my_struct",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 3,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 12,
+            },
+        },
+    },
+    Token {
+        kind: MethodAccessor,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 12,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 13,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "my_method",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 13,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 22,
+            },
+        },
+    },
+    Token {
+        kind: Assign,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 23,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 24,
+            },
+        },
+    },
+    Token {
+        kind: Self_,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 25,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 29,
+            },
+        },
+    },
+    Token {
+        kind: Separator,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 29,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 30,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "arg1",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 31,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 35,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "int",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 36,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 39,
+            },
+        },
+    },
+    Token {
+        kind: Separator,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 39,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 40,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "arg2",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 41,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 45,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "string",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 46,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 52,
+            },
+        },
+    },
+    Token {
+        kind: Arrow,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 53,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 55,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "string",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 56,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 62,
+            },
+        },
+    },
+    Token {
+        kind: OpenCurl,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 63,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 64,
+            },
+        },
+    },
+    Token {
+        kind: CloseCurl,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 64,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 65,
+            },
+        },
+    },
+]

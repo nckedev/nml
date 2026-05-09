@@ -496,6 +496,16 @@ mod lexer_tests {
     }
 
     #[test]
+    fn insta_test() {
+        let actual = token_vector(
+            "fn my_struct.my_method = self, arg1 int, arg2 string -> string {}",
+            true,
+        );
+
+        insta::assert_debug_snapshot!(actual);
+    }
+
+    #[test]
     fn methods() {
         use TokenKind::*;
 
