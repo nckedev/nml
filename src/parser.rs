@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
+    ast::{Ast, Node, Untyped},
     diagnostics::{DiagEntry, DiagSeverity::Error, Diagnostics},
     expected_token,
     identifier::Identifier,
@@ -77,14 +78,14 @@ impl<'a> Parser<'a> {
         &self.diagnostics
     }
 
-    pub fn parse(&mut self) -> Result<AST, ParseErr> {
+    pub fn parse(&mut self) -> Result<Ast<Untyped>, ParseErr> {
         Log::info("Parsing");
         let root = self.id_generator.next_scope();
 
         //self.print();
 
         let b = self.parse_stmt(root);
-        let mut ast = AST::new();
+        let mut ast = Ast::new();
         // debug::print(&b);
         ast.add(b?);
 
@@ -321,196 +322,6 @@ pub struct TypeInfo {
     _type: String,
 }
 
-// !!! expression is something that evaluates to a value
-#[derive(Debug)]
-pub enum Node {
-    VariableAccess,
-    FunctionCall,
-    MethodCall,
-
-    //stmt
-    TypeDecl {
-        type_id: TypeId,
-        ident: Identifier,
-        body: Box<Node>,
-    },
-    RecordFieldDecl {
-        name_ident: Identifier,
-        // type_ident: Identifier,
-    },
-    BlockStmt,
-    UseStmt {},
-    ModuleDeclr {
-        ident: String,
-        body: Vec<Node>,
-    },
-    LetStmt {
-        span: Span,
-        ident: Identifier,
-        expr: Box<Node>,
-    },
-    Ident {
-        ident: String,
-    },
-    TypeIdent {
-        ident: String,
-    },
-
-    //expr
-    IfExpr,
-    MatchExpr,
-    ConstExpr {
-        expr: String,
-    },
-    BinaryExpr {
-        left: Box<Node>,
-        operator: Operator,
-        right: Box<Node>,
-    },
-    BooleanExpr {
-        left: Box<Node>,
-        operator: Operator,
-        right: Box<Node>,
-    },
-
-    Block {
-        stmts: Vec<Node>,
-        span: Span,
-    },
-
-    UnaryExpr,
-    EOF,
-
-    Invalid,
-    Empty,
-}
-
-impl Node {
-    fn has_parent(&self, id: ScopeId) -> bool {
-        match self {
-            Node::ModuleDeclr { ident, body } => false,
-            _ => false,
-        }
-    }
-}
-
-impl Display for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let _ = f;
-        match self {
-            Node::VariableAccess => write!(f, "VariableAccess"),
-            Node::FunctionCall => write!(f, "FunctionCall"),
-            Node::MethodCall => write!(f, "MethodCall"),
-            Node::BlockStmt => write!(f, "BlockStmt"),
-            Node::UseStmt {} => write!(f, "UseStmt "),
-            Node::ModuleDeclr { .. } => write!(f, "ModuleDeclr"),
-            Node::LetStmt { ident, .. } => write!(f, "LetStmt {}", ident),
-            Node::ConstExpr { .. } => write!(f, "ConstExpr"),
-            Node::BinaryExpr { .. } => write!(f, "BinaryExpr"),
-            Node::UnaryExpr => write!(f, "UnaryExpr"),
-            Node::EOF => write!(f, "EOF"),
-            Node::IfExpr => write!(f, "IfExpr"),
-            Node::MatchExpr => write!(f, "MatchExpr"),
-            Node::Invalid => write!(f, "Invalid"),
-            Node::Empty => write!(f, "Empty"),
-            Node::BooleanExpr { .. } => write!(f, "BooleanExpr"),
-            Node::TypeDecl { .. } => write!(f, "TypeDecl"),
-            Node::RecordFieldDecl { .. } => write!(f, "RecordFieldDecl"),
-            Node::Ident { ident } => write!(f, "Ident {}", ident),
-            Node::TypeIdent { ident } => write!(f, "TypeIdent {}", ident),
-            Node::Block { .. } => write!(f, "Block"),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct AST {
-    nodes: Vec<Node>,
-}
-
-impl AST {
-    pub fn new() -> Self {
-        Self { nodes: Vec::new() }
-    }
-
-    pub fn add(&mut self, node: Node) {
-        self.nodes.push(node)
-    }
-
-    pub fn simple_print(&self) {
-        for node in &self.nodes {
-            Self::simple_print_inner(node, 0);
-        }
-    }
-
-    pub fn simple_print_inner(node: &Node, depth: u32) {
-        let tabs = "\t".repeat(depth as usize);
-        match node {
-            Node::TypeDecl { ident, body, .. } => {
-                println!("{}{}", tabs, node);
-                Self::simple_print_inner(body, depth + 1);
-            }
-            Node::LetStmt { ident, expr, .. } => {
-                println!("{}{}", tabs, node);
-                Self::simple_print_inner(expr, depth + 1);
-            }
-            Node::ConstExpr { expr, .. } => {
-                println!("{}{} {}", tabs, node, expr);
-            }
-            _ => println!("{}{}", tabs, node),
-        }
-    }
-
-    pub fn print(&self) {
-        for node in self.nodes.iter() {
-            AST::print_node(node)
-        }
-    }
-
-    fn print_node(node: &Node) {
-        match node {
-            Node::TypeDecl {
-                type_id,
-                ident,
-                body,
-            } => println!("typedecl"),
-            Node::ModuleDeclr { ident, body } => {
-                println!("module {} body: ", ident);
-                for x in body {
-                    AST::print_node(x);
-                }
-            }
-            Node::LetStmt { span, ident, expr } => {
-                print!("Let {} @ {} expr : ", ident, span);
-                println!("{:?}", AST::print_node(expr));
-            }
-            Node::BinaryExpr {
-                left,
-                operator,
-                right,
-            } => {
-                print!("(");
-                AST::print_node(left);
-                print!("{}", operator);
-                AST::print_node(right);
-                print!(")");
-            }
-            Node::BooleanExpr {
-                left,
-                operator,
-                right,
-            } => println!("boolean expr"),
-            _ => println!("{}", node),
-        }
-    }
-}
-
-impl Display for AST {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "")
-    }
-}
-
 #[derive(Debug)]
 pub(crate) enum Operator {
     Plus,
@@ -568,7 +379,6 @@ mod tests {
         let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
         node.simple_print();
-        assert!(node.nodes.len() > 0);
         assert!(false, "Node was Err");
         Ok(())
     }
@@ -593,7 +403,6 @@ mod tests {
         let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
         node.simple_print();
-        assert!(node.nodes.len() > 0);
         assert!(false, "Node was Err");
         Ok(())
     }

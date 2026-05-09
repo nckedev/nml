@@ -4,7 +4,6 @@ use std::slice::Iter;
 
 use crate::parser::ParseErr;
 use crate::span::Span;
-use crate::token::Token;
 use crate::token::TokenKind;
 
 pub struct DiagCode;

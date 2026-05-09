@@ -11,6 +11,7 @@ pub struct Stream<T>
 where
     T: Clone + PartialEq + std::fmt::Debug + LineSeparator<Item = T>,
 {
+    // TODO: This can be an iterator?
     buffer: VecDeque<T>,
     pub index: SourceIndex,
 }
