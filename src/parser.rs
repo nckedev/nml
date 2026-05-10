@@ -345,7 +345,14 @@ impl Display for Operator {
 
 #[cfg(test)]
 mod tests {
-    use crate::{parser::Parser, scope::IdGenerator, span::Span, std::assert, token::NumberToken};
+    use crate::{
+        parser::Parser,
+        scope::IdGenerator,
+        span::Span,
+        std::assert,
+        test_utils::{self, SnapshotStr},
+        token::NumberToken,
+    };
 
     use super::*;
 
@@ -365,8 +372,7 @@ mod tests {
         let diag = &mut Diagnostics::new();
         let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
-        node.simple_print();
-        assert!(false, "Node was Err");
+        test_utils::assert_snapshot(node.nodes);
         Ok(())
     }
 
@@ -389,8 +395,7 @@ mod tests {
         let diag = &mut Diagnostics::new();
         let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
-        node.simple_print();
-        assert!(false, "Node was Err");
+        insta::assert_snapshot!(node.nodes.print());
         Ok(())
     }
 }

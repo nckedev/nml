@@ -221,12 +221,6 @@ impl LineSeparator for Token {
     }
 }
 
-impl std::fmt::Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} @ {}", self.kind, self.span)
-    }
-}
-
 impl Token {
     pub fn new(kind: TokenKind, span: Span) -> Self {
         Token { kind, span }
@@ -234,5 +228,12 @@ impl Token {
 
     fn empty() -> Self {
         Self::new(TokenKind::Empty, Span::default())
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)?;
+        Ok(())
     }
 }

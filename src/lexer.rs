@@ -288,6 +288,7 @@ fn match_litteral(str: &str) -> TokenKind {
 #[cfg(test)]
 mod lexer_tests {
     use super::*;
+    use crate::test_utils::{self, assert_snapshot, SnapshotStr};
     use rstest::*;
 
     // lexer integrations test
@@ -400,8 +401,8 @@ mod lexer_tests {
 
     #[test]
     fn tokenize_let_binding_const() {
-        let tokens = token_vector("let a = 2", true);
-        insta::assert_debug_snapshot!(tokens);
+        let tokens = token_vector("let a = 2", false);
+        insta::assert_snapshot!(tokens.print());
     }
 
     #[test]

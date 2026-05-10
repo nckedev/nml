@@ -1,18 +1,13 @@
 use std::{fmt::Display, marker::PhantomData};
 
-use crate::{
-    identifier::Identifier,
-    parser::Operator,
-    scope::{ScopeId, TypeId},
-    span::Span,
-};
+use crate::{identifier::Identifier, parser::Operator, scope::TypeId, span::Span};
 
 pub struct Typed;
 pub struct Untyped;
 
 #[derive(Debug)]
 pub(crate) struct Ast<T> {
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
     _marker: PhantomData<T>,
 }
 
@@ -26,30 +21,6 @@ impl Ast<Untyped> {
 
     pub fn add(&mut self, node: Node) {
         self.nodes.push(node)
-    }
-
-    pub fn simple_print(&self) {
-        for node in &self.nodes {
-            Self::simple_print_inner(node, 0);
-        }
-    }
-
-    pub fn simple_print_inner(node: &Node, depth: u32) {
-        let tabs = "\t".repeat(depth as usize);
-        match node {
-            Node::TypeDecl { ident, body, .. } => {
-                println!("{}{}", tabs, node);
-                Self::simple_print_inner(body, depth + 1);
-            }
-            Node::LetStmt { ident, expr, .. } => {
-                println!("{}{}", tabs, node);
-                Self::simple_print_inner(expr, depth + 1);
-            }
-            Node::ConstExpr { expr, .. } => {
-                println!("{}{} {}", tabs, node, expr);
-            }
-            _ => println!("{}{}", tabs, node),
-        }
     }
 
     pub fn print(&self) {
@@ -91,7 +62,7 @@ impl Ast<Untyped> {
                 operator,
                 right,
             } => println!("boolean expr"),
-            _ => println!("{}", node),
+            _ => println!("{:?}", node),
         }
     }
 }
@@ -164,42 +135,4 @@ pub enum Node {
 
     Invalid,
     Empty,
-}
-
-impl Node {
-    fn has_parent(&self, id: ScopeId) -> bool {
-        match self {
-            Node::ModuleDeclr { ident, body } => false,
-            _ => false,
-        }
-    }
-}
-
-impl Display for Node {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let _ = f;
-        match self {
-            Node::VariableAccess => write!(f, "VariableAccess"),
-            Node::FunctionCall => write!(f, "FunctionCall"),
-            Node::MethodCall => write!(f, "MethodCall"),
-            Node::BlockStmt => write!(f, "BlockStmt"),
-            Node::UseStmt {} => write!(f, "UseStmt "),
-            Node::ModuleDeclr { .. } => write!(f, "ModuleDeclr"),
-            Node::LetStmt { ident, .. } => write!(f, "LetStmt {}", ident),
-            Node::ConstExpr { .. } => write!(f, "ConstExpr"),
-            Node::BinaryExpr { .. } => write!(f, "BinaryExpr"),
-            Node::UnaryExpr => write!(f, "UnaryExpr"),
-            Node::EOF => write!(f, "EOF"),
-            Node::IfExpr => write!(f, "IfExpr"),
-            Node::MatchExpr => write!(f, "MatchExpr"),
-            Node::Invalid => write!(f, "Invalid"),
-            Node::Empty => write!(f, "Empty"),
-            Node::BooleanExpr { .. } => write!(f, "BooleanExpr"),
-            Node::TypeDecl { .. } => write!(f, "TypeDecl"),
-            Node::RecordFieldDecl { .. } => write!(f, "RecordFieldDecl"),
-            Node::Ident { ident } => write!(f, "Ident {}", ident),
-            Node::TypeIdent { ident } => write!(f, "TypeIdent {}", ident),
-            Node::Block { .. } => write!(f, "Block"),
-        }
-    }
 }

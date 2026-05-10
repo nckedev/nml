@@ -12,6 +12,8 @@ mod span;
 mod std;
 mod stream;
 mod table;
+#[cfg(test)]
+pub mod test_utils;
 mod token;
 mod vm;
 
