@@ -80,7 +80,7 @@ pub fn is_const_expr(t: &Token) -> bool {
     }
 }
 
-pub fn function_call(t: &Token) -> bool {
+pub fn function_call(_t: &Token) -> bool {
     todo!()
 }
 

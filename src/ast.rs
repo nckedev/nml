@@ -32,9 +32,9 @@ impl Ast<Untyped> {
     fn print_node(node: &Node) {
         match node {
             Node::TypeDecl {
-                type_id,
-                ident,
-                body,
+                type_id: _,
+                ident: _,
+                body: _,
             } => println!("typedecl"),
             Node::ModuleDeclr { ident, body } => {
                 println!("module {} body: ", ident);
@@ -58,9 +58,9 @@ impl Ast<Untyped> {
                 print!(")");
             }
             Node::BooleanExpr {
-                left,
-                operator,
-                right,
+                left: _,
+                operator: _,
+                right: _,
             } => println!("boolean expr"),
             _ => println!("{:?}", node),
         }

@@ -20,7 +20,7 @@ impl<T: Copy + Default> Stack<T> {
     }
 
     pub fn pop(&mut self) -> Result<T, VmErr> {
-        let a = self
+        let _a = self
             .inner
             .get(self.sp as usize)
             .ok_or(VmErr::StackUnderflow)

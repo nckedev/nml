@@ -137,7 +137,7 @@ impl Diagnostics {
         &mut self,
         actual: &TokenKind,
         expected: String,
-        span: &Span,
+        _span: &Span,
     ) {
         let entry = DiagEntry::message_only(format!(
             "@ expected {}, found {}",

@@ -9,7 +9,6 @@ use crate::{
     scope::{IdGenerator, ScopeId, TypeId},
     source_char::SourceIndex,
     span::Span,
-    table::TypeTable,
 };
 use crate::{
     stream::Stream,
@@ -85,7 +84,7 @@ impl<'a> Parser<'a> {
     fn parse_addative_expr(&mut self) -> Result<Node, ParseErr> {
         let mut left = self.parse_multiplicative_expr()?;
 
-        let t = self.stream.take_expecting(|t| {
+        let _t = self.stream.take_expecting(|t| {
             expected_token::token_kind(t, &|kind| matches!(kind, TokenKind::Number(..)))
         });
 
@@ -128,7 +127,7 @@ impl<'a> Parser<'a> {
 
         let res = match token.kind {
             TokenKind::Number(x) => Node::ConstExpr { expr: x.value },
-            TokenKind::Identifier(ident) => {
+            TokenKind::Identifier(_ident) => {
                 // TODO: variable lookup
                 todo!()
             }
@@ -203,7 +202,7 @@ impl<'a> Parser<'a> {
             }
             TokenKind::Trivia(TokenTrivia::EOL) => self.parse_stmt()?,
             TokenKind::Trivia(TokenTrivia::EOF) => Node::EOF,
-            x => {
+            _x => {
                 self.diagnostics
                     .push(DiagEntry::empty("invalid token".to_string()));
                 self.parse_stmt()?
@@ -232,7 +231,7 @@ impl<'a> Parser<'a> {
         let _ = self.stream.take();
         let token = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
 
-        let s = self.id_generator.next_scope();
+        let _s = self.id_generator.next_scope();
         match token.kind {
             TokenKind::Identifier(ident) => Ok(Node::ModuleDeclr {
                 ident,
@@ -257,7 +256,7 @@ impl<'a> Parser<'a> {
             .stream
             .take_expecting(expected_token::type_classification)?;
 
-        let body = match token.kind {
+        let _body = match token.kind {
             TokenKind::OpenCurl => self.parse_struct()?,
             TokenKind::OpenBracket => self.parse_enum()?,
             TokenKind::OpenParen => self.parse_tuple()?,
@@ -275,7 +274,7 @@ impl<'a> Parser<'a> {
         //}
         //part of a type declr
         let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
-        let (type_ident, type_span) = self.stream.take_expecting(expected_token::ident)?;
+        let (_type_ident, _type_span) = self.stream.take_expecting(expected_token::ident)?;
         let _ = self.stream.take_expecting(expected_token::type_decl_end);
 
         Ok(Node::RecordFieldDecl {

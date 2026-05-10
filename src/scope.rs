@@ -1,7 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    hash::Hasher,
-};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub(crate) struct ScopeId(u64);
@@ -55,15 +52,15 @@ impl ScopeTree {
             children: HashMap::new(),
         }
     }
-    fn is_parent_of(&self, child: ScopeId, parent: ScopeId) -> bool {
+    fn is_parent_of(&self, _child: ScopeId, _parent: ScopeId) -> bool {
         false
     }
 
-    fn get_parents(&self, child: ScopeId) -> ScopeId {
+    fn get_parents(&self, _child: ScopeId) -> ScopeId {
         ScopeId(0)
     }
 
-    fn find_child(&self, needle: ScopeId) -> Option<&ScopeTree> {
+    fn find_child(&self, _needle: ScopeId) -> Option<&ScopeTree> {
         return None;
         // if self.children.contains_key(&needle) {
         //     self.children.get(&needle)

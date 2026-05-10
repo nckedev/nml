@@ -38,7 +38,7 @@ fn nop(vm: &mut VM) -> Result<(), VmErr> {
     Ok(())
 }
 
-fn illegal_op(vm: &mut VM) -> VmResult {
+fn illegal_op(_vm: &mut VM) -> VmResult {
     panic!("illegal op");
 }
 
