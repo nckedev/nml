@@ -1,12 +1,10 @@
 ---
 source: src/lexer.rs
-expression: actual
+expression: tokens
 ---
 [
     Token {
-        kind: Identifier(
-            "fn",
-        ),
+        kind: Let,
         span: Span {
             start: SourceIndex {
                 row: 1,
@@ -14,50 +12,22 @@ expression: actual
             },
             end: SourceIndex {
                 row: 1,
-                col: 2,
-            },
-        },
-    },
-    Token {
-        kind: Identifier(
-            "my_struct",
-        ),
-        span: Span {
-            start: SourceIndex {
-                row: 1,
                 col: 3,
             },
-            end: SourceIndex {
-                row: 1,
-                col: 12,
-            },
-        },
-    },
-    Token {
-        kind: MethodAccessor,
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 12,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 13,
-            },
         },
     },
     Token {
         kind: Identifier(
-            "my_method",
+            "my_fn",
         ),
         span: Span {
             start: SourceIndex {
                 row: 1,
-                col: 13,
+                col: 4,
             },
             end: SourceIndex {
                 row: 1,
-                col: 22,
+                col: 9,
             },
         },
     },
@@ -66,140 +36,11 @@ expression: actual
         span: Span {
             start: SourceIndex {
                 row: 1,
-                col: 23,
+                col: 10,
             },
             end: SourceIndex {
                 row: 1,
-                col: 24,
-            },
-        },
-    },
-    Token {
-        kind: Identifier(
-            "self",
-        ),
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 25,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 29,
-            },
-        },
-    },
-    Token {
-        kind: Separator,
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 29,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 30,
-            },
-        },
-    },
-    Token {
-        kind: Identifier(
-            "arg1",
-        ),
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 31,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 35,
-            },
-        },
-    },
-    Token {
-        kind: Identifier(
-            "int",
-        ),
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 36,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 39,
-            },
-        },
-    },
-    Token {
-        kind: Separator,
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 39,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 40,
-            },
-        },
-    },
-    Token {
-        kind: Identifier(
-            "arg2",
-        ),
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 41,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 45,
-            },
-        },
-    },
-    Token {
-        kind: Identifier(
-            "string",
-        ),
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 46,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 52,
-            },
-        },
-    },
-    Token {
-        kind: Arrow,
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 53,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 55,
-            },
-        },
-    },
-    Token {
-        kind: Identifier(
-            "string",
-        ),
-        span: Span {
-            start: SourceIndex {
-                row: 1,
-                col: 56,
-            },
-            end: SourceIndex {
-                row: 1,
-                col: 62,
+                col: 11,
             },
         },
     },
@@ -208,11 +49,110 @@ expression: actual
         span: Span {
             start: SourceIndex {
                 row: 1,
-                col: 63,
+                col: 12,
             },
             end: SourceIndex {
                 row: 1,
-                col: 64,
+                col: 13,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "a",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 14,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 15,
+            },
+        },
+    },
+    Token {
+        kind: Separator,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 15,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 16,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "b",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 17,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 18,
+            },
+        },
+    },
+    Token {
+        kind: FatArrow,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 19,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 21,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "a",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 22,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 23,
+            },
+        },
+    },
+    Token {
+        kind: Plus,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 24,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 25,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "b",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 26,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 27,
             },
         },
     },
@@ -221,11 +161,11 @@ expression: actual
         span: Span {
             start: SourceIndex {
                 row: 1,
-                col: 64,
+                col: 28,
             },
             end: SourceIndex {
                 row: 1,
-                col: 65,
+                col: 29,
             },
         },
     },

@@ -92,7 +92,7 @@ impl<'a> Lexer<'a> {
                     if self.stream.peek_and_step_if('=') {
                         TokenKind::Eq
                     } else if self.stream.peek_and_step_if(SourceChar::from('>')) {
-                        TokenKind::Lambda
+                        TokenKind::FatArrow
                     } else {
                         TokenKind::Assign
                     }
@@ -274,18 +274,13 @@ fn match_litteral(str: &str) -> TokenKind {
         "if" => TokenKind::If,
         "else" => TokenKind::Else,
         "for" => TokenKind::For,
-        "mut" => TokenKind::Mut,
-        "ref" => TokenKind::Ref,
-        "fn" => TokenKind::Function,
-        "interface" => TokenKind::Interface,
-        "const" => TokenKind::Const,
         "macro" => TokenKind::Macro,
         "todo" => TokenKind::Todo,
         "panic" => TokenKind::Panic,
-        "self" => TokenKind::Self_,
         "mod" => TokenKind::Module,
         "type" => TokenKind::Type,
         "opaque" => TokenKind::Opaque,
+        "trait" => TokenKind::Trait,
         _ => TokenKind::Identifier(str.to_string()),
     }
 }
@@ -404,6 +399,30 @@ mod lexer_tests {
     }
 
     #[test]
+    fn tokenize_let_binding_const() {
+        let tokens = token_vector("let a = 2", true);
+        insta::assert_debug_snapshot!(tokens);
+    }
+
+    #[test]
+    fn tokenize_let_binding_expr() {
+        let tokens = token_vector("let a = 1 + 2", true);
+        insta::assert_debug_snapshot!(tokens);
+    }
+
+    #[test]
+    fn tokenize_let_binding_func() {
+        let tokens = token_vector("let my_fn = { a, b => a + b }", true);
+        insta::assert_debug_snapshot!(tokens);
+    }
+
+    #[test]
+    fn tokenize_type_decl_record() {
+        let tokens = token_vector("type MyType = { a Int, b [Gt, Lt] }", true);
+        insta::assert_debug_snapshot!(tokens);
+    }
+
+    #[test]
     fn new_lines() {
         let tokenized = token_vector("\n", false);
         let actual = tokenized.first().unwrap();
@@ -478,61 +497,5 @@ mod lexer_tests {
             number_token_from_str("10", None),
         ];
         assert_eq!(left, right);
-    }
-
-    #[test]
-    fn attribute() {
-        use TokenKind::*;
-
-        let actual = tokenkind_vector("@test fn testFunc", true);
-        let expected = vec![
-            AtMarker,
-            Identifier("test".to_string()),
-            Function,
-            Identifier("testFunc".to_string()),
-        ];
-
-        assert_eq!(actual, expected);
-    }
-
-    #[test]
-    fn insta_test() {
-        let actual = token_vector(
-            "fn my_struct.my_method = self, arg1 int, arg2 string -> string {}",
-            true,
-        );
-
-        insta::assert_debug_snapshot!(actual);
-    }
-
-    #[test]
-    fn methods() {
-        use TokenKind::*;
-
-        let actual = tokenkind_vector(
-            "fn my_struct.my_method = self, arg1 int, arg2 string -> string {}",
-            true,
-        );
-
-        let expected = vec![
-            Function,
-            Identifier("my_struct".to_string()),
-            MethodAccessor,
-            Identifier("my_method".to_string()),
-            Assign,
-            Self_,
-            Separator,
-            Identifier("arg1".to_string()),
-            Identifier("int".to_string()),
-            Separator,
-            Identifier("arg2".to_string()),
-            Identifier("string".to_string()),
-            Arrow,
-            identifier_from_str("string"),
-            OpenCurl,
-            CloseCurl,
-        ];
-
-        assert_eq!(actual, expected);
     }
 }

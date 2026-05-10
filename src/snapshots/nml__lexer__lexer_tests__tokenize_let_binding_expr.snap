@@ -1,0 +1,98 @@
+---
+source: src/lexer.rs
+expression: tokens
+---
+[
+    Token {
+        kind: Let,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 0,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 3,
+            },
+        },
+    },
+    Token {
+        kind: Identifier(
+            "a",
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 4,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 5,
+            },
+        },
+    },
+    Token {
+        kind: Assign,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 6,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 7,
+            },
+        },
+    },
+    Token {
+        kind: Number(
+            NumberToken {
+                value: "1",
+                prefix: None,
+                suffix: None,
+            },
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 8,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 9,
+            },
+        },
+    },
+    Token {
+        kind: Plus,
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 10,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 11,
+            },
+        },
+    },
+    Token {
+        kind: Number(
+            NumberToken {
+                value: "2",
+                prefix: None,
+                suffix: None,
+            },
+        ),
+        span: Span {
+            start: SourceIndex {
+                row: 1,
+                col: 12,
+            },
+            end: SourceIndex {
+                row: 1,
+                col: 13,
+            },
+        },
+    },
+]

@@ -27,10 +27,19 @@ type EnumType = [
 $ List.map { a => a + 1 }
 $ List.fiter { a => a > 0 }
 
-trait MyTrait a =
-    fn sort = List a, fn a,a -> [Gt, Lt, Eq] -> List a
+trait MyTrait a = {
+     sort = List a, fn a,a -> [Gt, Lt, Eq] -> List a
+}
 
-let a = 1
+trait Add 'a where 'a : Num = {
+    (+) 'a -> 'a -> 'a
+}
+
+instance Add for 'a where 'a is Num {
+    let (+) = { a 'a , b 'a => a + b }
+}
+
+let a = 1 // () -> Int == Int
 let a = { Int => 1 }
 let b = { a 3, my_string "sdfsf" }
 let c = (3, 3)
@@ -40,6 +49,12 @@ let e = { () : Int =>
     let b = 3
     a + b
 }
+
+let a = Some 3
+let b = None
+let c = a ?? 1 // b = 3
+let c = a or 1 // b = 1
+
 
 let my_func = { a Int, b Int -> Int => 
     a + b
@@ -51,7 +66,7 @@ let my_f = a Int -> b Int -> Int => {
 
 let my_func2 = { 
     a, b : { x: Int }* -> Int -> Int =>
-        if a == 0 and b > 0 then
+        if a == 0 and b > 0 
             a + b
         else if a > 0
             a
