@@ -237,12 +237,32 @@ pub struct NumberToken {
     /// 0b - bin 0b0101_0111
     /// 0o - oct 0o1281_1277
     /// .  - dec .1 == 0.1
-    pub prefix: Option<String>,
+    pub prefix: NumberTokenPrefix,
     /// suffixes
     /// f - float
     /// u - unsigned int
     /// e - sientific notation ue .2e-23
-    pub suffix: Option<String>,
+    pub suffix: NumberTokenSuffix,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum NumberTokenPrefix {
+    None,
+    Bin,
+    Hex,
+    Oct,
+    Dot,
+    Invalid(char),
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum NumberTokenSuffix {
+    None,
+    Float,
+    Uint,
+    Int,
+    Dot,
+    Sientific,
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -84,12 +84,25 @@ impl SnapshotStr for Token {
         let str = match &self.kind {
             TokenKind::String(str) => &format!("String \"{}\"", str),
             TokenKind::Char(c) => &format!("Char '{}'", c),
-            TokenKind::Number(number_token) => &format!(
-                "Number: {}{}{}",
-                number_token.prefix.as_deref().unwrap_or(""),
-                number_token.value,
-                number_token.suffix.as_deref().unwrap_or(""),
-            ),
+            TokenKind::Number(number_token) => {
+                let prefix = match number_token.prefix {
+                    token::NumberTokenPrefix::None => "",
+                    token::NumberTokenPrefix::Bin => "Bin",
+                    token::NumberTokenPrefix::Hex => "Hex",
+                    token::NumberTokenPrefix::Oct => "Oct",
+                    token::NumberTokenPrefix::Dot => ".",
+                    token::NumberTokenPrefix::Invalid(x) => &format!("Invalid({x})"),
+                };
+                let suffix = match number_token.suffix {
+                    token::NumberTokenSuffix::None => "",
+                    token::NumberTokenSuffix::Float => "float",
+                    token::NumberTokenSuffix::Uint => "Uint",
+                    token::NumberTokenSuffix::Int => "Int",
+                    token::NumberTokenSuffix::Dot => ".",
+                    token::NumberTokenSuffix::Sientific => "Sientific",
+                };
+                &format!("Number: {}{}{}", prefix, number_token.value, suffix)
+            }
             TokenKind::Identifier(ident) => &format!("Identifier: {}", ident),
             TokenKind::Litteral => "Litteral",
             TokenKind::Discard => "Discard",

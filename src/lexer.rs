@@ -3,6 +3,8 @@ use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
 use crate::stream::Stream;
 use crate::token::NumberToken;
+use crate::token::NumberTokenPrefix;
+use crate::token::NumberTokenSuffix;
 use crate::token::Token;
 use crate::token::TokenError::Unexpected;
 use crate::token::TokenKind;
@@ -134,12 +136,8 @@ impl Lexer {
                             TokenKind::ExclusiveRange
                         }
                     } else {
-                        if self.stream.peek_expect(|x| x.is_number()) {
-                            self.take_number(&v)
-                        } else {
-                            // method accessor, or whatever its called
-                            TokenKind::MethodAccessor
-                        }
+                        // method accessor, or whatever its called
+                        TokenKind::MethodAccessor
                     }
                 }
                 SourceChar { ch: ',', .. } => TokenKind::Separator,
@@ -201,24 +199,68 @@ impl Lexer {
     /// Returs an number (int or float) from the stream and advances
     fn take_number(&mut self, sc: &SourceChar) -> TokenKind {
         let mut number_buf: Vec<SourceChar> = vec![];
-        let mut suffix_buf: Vec<SourceChar> = vec![];
-        let mut has_suffix = false;
+        let mut has_dot = false;
+        let mut suffix = NumberTokenSuffix::None;
 
         // push the first char that has already been taken by the main loop
-        number_buf.push(*sc);
+        let prefix = match sc.ch {
+            '0' if let Some(SourceChar { ch, .. }) = self.stream.peek() => match ch {
+                'x' => {
+                    let _ = self.stream.take();
+                    NumberTokenPrefix::Hex
+                }
+                'b' => {
+                    let _ = self.stream.take();
+                    NumberTokenPrefix::Bin
+                }
+                'o' => {
+                    let _ = self.stream.take();
+                    NumberTokenPrefix::Oct
+                }
+                '.' => {
+                    // 0..  this is a range operator, return just the 0
+                    if self.stream.peek_n_expect(1, |c| c.ch == '.') {
+                        return TokenKind::Number(NumberToken {
+                            value: "0".to_string(),
+                            prefix: NumberTokenPrefix::None,
+                            suffix: NumberTokenSuffix::None,
+                        });
+                    } else {
+                        number_buf.push(*sc);
+                        NumberTokenPrefix::None
+                    }
+                }
+                '0'..='9' | 'A'..='F' => {
+                    number_buf.push(*sc);
+                    NumberTokenPrefix::None
+                }
+                x => NumberTokenPrefix::Invalid(*x),
+            },
+            _ => {
+                number_buf.push(*sc);
+                NumberTokenPrefix::None
+            }
+        };
 
         while let Some(v) = self.stream.peek().copied() {
             match v {
+                SourceChar { ch: 'f', .. }
+                    if prefix == NumberTokenPrefix::None
+                        && self
+                            .stream
+                            .peek_n_expect(1, |c| !SourceChar::is_alpha_or_number(c)) =>
+                {
+                    self.stream.take();
+                    suffix = NumberTokenSuffix::Float;
+                }
                 SourceChar {
-                    ch: 'a'..='z' | 'A'..='Z',
+                    ch: 'a'..='f' | 'A'..='F',
                     ..
                 } => {
-                    if let Some(t) = self.stream.take() {
-                        suffix_buf.push(t);
-                        has_suffix = true;
-                    }
+                    number_buf.push(v);
+                    let _ = self.stream.take();
                 }
-                SourceChar { ch: '.', .. } => {
+                SourceChar { ch: '.', .. } if !has_dot => {
                     // if there is two dots in a row it is a range operator
                     // so return what we have got so far as a IntNumber
                     if self.stream.peek_n_expect(1, |x| x.ch == '.') {
@@ -226,6 +268,7 @@ impl Lexer {
                     }
                     number_buf.push(v);
                     self.stream.take();
+                    has_dot = true;
                 }
                 SourceChar { ch: '_', index: _ } => {
                     self.stream.take();
@@ -233,7 +276,7 @@ impl Lexer {
                 SourceChar {
                     ch: '0'..='9',
                     index: _,
-                } if !has_suffix => {
+                } => {
                     number_buf.push(v);
                     self.stream.take();
                 }
@@ -245,14 +288,9 @@ impl Lexer {
             };
         }
 
-        let suffix: Option<String> = if !suffix_buf.is_empty() {
-            Some(suffix_buf.iter().map(|x| x.ch).collect::<String>())
-        } else {
-            None
-        };
         TokenKind::Number(NumberToken {
             value: number_buf.iter().map(|x| x.ch).collect(),
-            prefix: None,
+            prefix,
             suffix,
         })
     }
@@ -278,7 +316,10 @@ fn match_litteral(str: &str) -> TokenKind {
 #[cfg(test)]
 mod lexer_tests {
     use super::*;
-    use crate::{span::Span, test_utils::SnapshotStr};
+    use crate::{
+        test_utils::SnapshotStr,
+        token::{NumberTokenPrefix, NumberTokenSuffix},
+    };
     use rstest::*;
 
     // lexer integrations test
@@ -304,44 +345,35 @@ mod lexer_tests {
         }
     }
 
-    /// retruns a number token without prefix or suffix from griven str
-    fn number_token_from_str(str: &str, suffix: Option<String>) -> TokenKind {
-        TokenKind::Number(NumberToken {
-            value: str.to_string(),
-            prefix: None,
-            suffix,
-        })
-    }
+    // /// retruns a number token without prefix or suffix from griven str
+    // fn number_token_from_str(str: &str, suffix: Option<String>) -> TokenKind {
+    //     TokenKind::Number(NumberToken {
+    //         value: str.to_string(),
+    //         prefix: None,
+    //         suffix,
+    //     })
+    // }
 
     #[rstest]
-    #[case("1.0", "1.0", "", "")]
-    #[case("10", "10", "", "")]
-    #[case("10_", "10", "", "")]
-    #[case("1_000", "1000", "", "")]
-    #[case("1.0f", "1.0", "", "f")]
-    #[case("1.0wrong", "1.0", "", "wrong")]
-    #[case(".10f", ".10", ".", "f")]
-    #[case(".10", ".10", ".", "")]
-    #[case(".1_0", ".10", ".", "")]
-    #[case(".1_0_f", ".10", ".", "f")]
+    #[case("1.0", "1.0", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case("10", "10", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case("10_", "10", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case("1_000", "1000", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case("1.0f", "1.0", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
+    #[case("10f", "10", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
+    #[case("1_0_f", "10", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
+    #[case("2.23", "2.23", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case("0xFF", "FF", NumberTokenPrefix::Hex, NumberTokenSuffix::None)]
     fn tokenize_number(
         #[case] input: String,
         #[case] expected_value: String,
-        #[case] expected_prefix: &str,
-        #[case] expected_suffix: &str,
+        #[case] expected_prefix: NumberTokenPrefix,
+        #[case] expected_suffix: NumberTokenSuffix,
     ) {
         let expected = TokenKind::Number(NumberToken {
             value: expected_value,
-            prefix: if expected_prefix.is_empty() {
-                None
-            } else {
-                Some(expected_prefix.to_string())
-            },
-            suffix: if expected_suffix.is_empty() {
-                None
-            } else {
-                Some(expected_suffix.to_string())
-            },
+            prefix: expected_prefix,
+            suffix: expected_suffix,
         });
 
         let actual = token_vector(&input, true).first().map(|t| &t.kind).cloned();

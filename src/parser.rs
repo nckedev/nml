@@ -347,7 +347,7 @@ mod tests {
         span::Span,
         std::assert,
         test_utils::{self, SnapshotStr},
-        token::NumberToken,
+        token::{NumberToken, NumberTokenPrefix, NumberTokenSuffix},
     };
 
     use super::*;
@@ -380,8 +380,8 @@ mod tests {
             TokenKind::Assign,
             TokenKind::Number(NumberToken {
                 value: "1".to_string(),
-                prefix: None,
-                suffix: None,
+                prefix: NumberTokenPrefix::None,
+                suffix: NumberTokenSuffix::None,
             }),
         ]
         .map(|kind| Token::new(kind, Span::default()))
