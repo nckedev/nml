@@ -8,19 +8,17 @@ use crate::token::TokenError::Unexpected;
 use crate::token::TokenKind;
 use crate::token::TokenTrivia;
 
-pub struct Lexer<'a> {
+pub struct Lexer {
     stream: Stream<SourceChar>,
-    diagnostics: &'a mut Diagnostics,
 }
 
 #[derive(Debug)]
 pub struct LexerErr {
     message: String,
-    // TODO: add token span
 }
 
-impl<'a> Lexer<'a> {
-    pub fn new(code: &str, diagnostics: &'a mut Diagnostics) -> Self {
+impl Lexer {
+    pub fn new(code: &str) -> Self {
         let mut sourcechars: Vec<SourceChar> = Vec::with_capacity(code.len());
 
         //transform chars to SourceChars to get the index of every char
@@ -41,12 +39,13 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        // insert a space at the last pos so that we can peek from the last char
+        // insert a \0 at the last pos so that we can peek from the last char
         // needed to get the index for the last token
+        // the \0 will be tokenized as EOF
         // TODO: detta funkar men fuckar upp testen
         if let Some(last) = sourcechars.last() {
             sourcechars.push(SourceChar {
-                ch: ' ',
+                ch: 0 as char,
                 index: SourceIndex {
                     row: last.index.row,
                     col: last.index.col + 1,
@@ -57,16 +56,16 @@ impl<'a> Lexer<'a> {
         // return the lexer with SourceChars
         Lexer {
             stream: Stream::from(sourcechars),
-            diagnostics,
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, LexerErr> {
+    pub fn tokenize(&mut self, diagnostics: &mut Diagnostics) -> Result<Vec<Token>, LexerErr> {
         let mut tokens = vec![];
         let mut start = self.stream.index;
 
         while let Some(v) = self.stream.take() {
             let token_kind = match v {
+                SourceChar { ch: '\0', .. } => TokenKind::Eof,
                 // identifier, keyword
                 SourceChar {
                     ch: 'a'..='z' | 'A'..='Z',
@@ -148,11 +147,13 @@ impl<'a> Lexer<'a> {
                 SourceChar { ch: '}', .. } => TokenKind::CloseCurl,
                 SourceChar { ch: '(', .. } => TokenKind::OpenParen,
                 SourceChar { ch: ')', .. } => TokenKind::CloseParen,
+                SourceChar { ch: '[', .. } => TokenKind::OpenBracket,
+                SourceChar { ch: ']', .. } => TokenKind::CloseBracket,
                 //string and char
                 SourceChar { ch: '"', .. } => TokenKind::Error(Unexpected(v.ch)),
                 SourceChar { ch: '\'', .. } => TokenKind::Error(Unexpected(v.ch)),
                 //whitespace
-                SourceChar { ch: '\n', .. } => TokenKind::Trivia(TokenTrivia::EOL),
+                SourceChar { ch: '\n', .. } => TokenKind::Eol,
                 SourceChar { ch: '\t', .. } => TokenKind::Trivia(TokenTrivia::Tab),
                 SourceChar { ch: ' ', .. } => TokenKind::Trivia(TokenTrivia::Space),
 
@@ -257,17 +258,6 @@ impl<'a> Lexer<'a> {
     }
 }
 
-fn strip_spacer(nr: &[SourceChar]) -> Vec<SourceChar> {
-    nr.iter()
-        .copied()
-        .filter(|x| x.ch != '_')
-        .collect::<Vec<SourceChar>>()
-}
-
-fn is_trivia(c: char) -> bool {
-    matches!(c, ' ' | '\t' | '\n')
-}
-
 fn match_litteral(str: &str) -> TokenKind {
     match str {
         "let" => TokenKind::Let,
@@ -288,34 +278,22 @@ fn match_litteral(str: &str) -> TokenKind {
 #[cfg(test)]
 mod lexer_tests {
     use super::*;
-    use crate::test_utils::{self, assert_snapshot, SnapshotStr};
+    use crate::{span::Span, test_utils::SnapshotStr};
     use rstest::*;
 
     // lexer integrations test
     const SPC: TokenKind = TokenKind::Trivia(TokenTrivia::Space);
-
-    fn tokenkind_vector(code: &str, skip_whitespace: bool) -> Vec<TokenKind> {
-        let mut diag = Diagnostics::new();
-        let mut l = Lexer::new(code, &mut diag);
-        match l.tokenize() {
-            Ok(value) => value
-                .iter()
-                .map(|x| x.kind.clone())
-                .filter(|x| if skip_whitespace { *x != SPC } else { true })
-                .collect(),
-            Err(_) => vec![],
-        }
-    }
+    const TAB: TokenKind = TokenKind::Trivia(TokenTrivia::Tab);
 
     fn token_vector(code: &str, skip_whitespace: bool) -> Vec<Token> {
         let mut diag = Diagnostics::new();
-        let mut l = Lexer::new(code, &mut diag);
-        match l.tokenize() {
+        let mut l = Lexer::new(code);
+        match l.tokenize(&mut diag) {
             Ok(value) => value
                 .iter()
                 .filter(|&tok| {
                     if skip_whitespace {
-                        tok.kind != SPC
+                        tok.kind != SPC && tok.kind != TAB
                     } else {
                         true
                     }
@@ -335,53 +313,39 @@ mod lexer_tests {
         })
     }
 
-    fn identifier_from_str(str: &str) -> TokenKind {
-        TokenKind::Identifier(str.to_string())
-    }
-
     #[rstest]
-    #[case("1.0", "1.0", None)]
-    #[case("10", "10", None)]
-    #[case("10_", "10", None)]
-    #[case("1_000", "1000", None)]
-    #[case("1.0f", "1.0", Some("f".to_string()))]
-    #[case("1.0wrong", "1.0", Some("wrong".to_string()))]
-    #[case(".10f", ".10", Some("f".to_string()))]
-    #[case(".10", ".10", None)]
-    #[case(".1_0", ".10", None)]
-    #[case(".1_0_f", ".10", Some("f".to_string()))]
+    #[case("1.0", "1.0", "", "")]
+    #[case("10", "10", "", "")]
+    #[case("10_", "10", "", "")]
+    #[case("1_000", "1000", "", "")]
+    #[case("1.0f", "1.0", "", "f")]
+    #[case("1.0wrong", "1.0", "", "wrong")]
+    #[case(".10f", ".10", ".", "f")]
+    #[case(".10", ".10", ".", "")]
+    #[case(".1_0", ".10", ".", "")]
+    #[case(".1_0_f", ".10", ".", "f")]
     fn tokenize_number(
         #[case] input: String,
         #[case] expected_value: String,
-        #[case] expected_suffix: Option<String>,
+        #[case] expected_prefix: &str,
+        #[case] expected_suffix: &str,
     ) {
         let expected = TokenKind::Number(NumberToken {
             value: expected_value,
-            prefix: None,
-            suffix: expected_suffix,
+            prefix: if expected_prefix.is_empty() {
+                None
+            } else {
+                Some(expected_prefix.to_string())
+            },
+            suffix: if expected_suffix.is_empty() {
+                None
+            } else {
+                Some(expected_suffix.to_string())
+            },
         });
 
-        let actual = tokenkind_vector(&input, true);
-        assert!(actual.contains(&expected));
-    }
-
-    #[test]
-    fn let_binding() {
-        use TokenKind::*;
-
-        let exp = vec![
-            Let,
-            Identifier("a".to_string()),
-            Assign,
-            Number(NumberToken {
-                value: "1".to_string(),
-                prefix: None,
-                suffix: None,
-            }),
-        ];
-
-        let res = tokenkind_vector("let a = 1", true);
-        assert_eq!(exp, res);
+        let actual = token_vector(&input, true).first().map(|t| &t.kind).cloned();
+        assert_eq!(actual, Some(expected));
     }
 
     #[rstest]
@@ -401,102 +365,47 @@ mod lexer_tests {
 
     #[test]
     fn tokenize_let_binding_const() {
-        let tokens = token_vector("let a = 2", false);
-        insta::assert_snapshot!(tokens.print());
+        insta::assert_snapshot!(token_vector("let a = 2", false).snapshot());
     }
 
     #[test]
     fn tokenize_let_binding_expr() {
         let tokens = token_vector("let a = 1 + 2", true);
-        insta::assert_debug_snapshot!(tokens);
+        insta::assert_snapshot!(tokens.snapshot());
     }
 
     #[test]
     fn tokenize_let_binding_func() {
         let tokens = token_vector("let my_fn = { a, b => a + b }", true);
-        insta::assert_debug_snapshot!(tokens);
+        insta::assert_snapshot!(tokens.snapshot());
     }
 
     #[test]
     fn tokenize_type_decl_record() {
         let tokens = token_vector("type MyType = { a Int, b [Gt, Lt] }", true);
-        insta::assert_debug_snapshot!(tokens);
+        insta::assert_snapshot!(tokens.snapshot());
     }
 
     #[test]
-    fn new_lines() {
+    fn tokenize_new_line() {
         let tokenized = token_vector("\n", false);
         let actual = tokenized.first().unwrap();
-        assert_eq!(TokenKind::Trivia(TokenTrivia::EOL), actual.kind);
+        assert_eq!(TokenKind::Eol, actual.kind);
     }
 
     #[test]
-    fn if_statement_curl() {
-        use TokenKind::*;
-
-        let left = tokenkind_vector("if a >= b { a + b }", true);
-        let right = vec![
-            If,
-            Identifier("a".to_string()),
-            GtEq,
-            Identifier("b".to_string()),
-            OpenCurl,
-            Identifier("a".to_string()),
-            Plus,
-            Identifier("b".to_string()),
-            CloseCurl,
-        ];
-        assert_eq!(left, right);
-    }
-
-    #[test]
-    fn if_else_statement() {
-        use TokenKind::*;
-
-        let left = tokenkind_vector("if a >= b { a + b } else  { a - b }", true);
-        let right = vec![
-            If,
-            Identifier("a".to_string()),
-            GtEq,
-            Identifier("b".to_string()),
-            OpenCurl,
-            Identifier("a".to_string()),
-            Plus,
-            Identifier("b".to_string()),
-            CloseCurl,
-            Else,
-            OpenCurl,
-            Identifier("a".to_string()),
-            Minus,
-            Identifier("b".to_string()),
-            CloseCurl,
-        ];
-        assert_eq!(left, right);
+    fn if_else_expr() {
+        let tokens = token_vector("if a >= b { a + b } else  { a - b }", true);
+        insta::assert_snapshot!(tokens.snapshot())
     }
 
     #[test]
     fn range_operator() {
-        use TokenKind::*;
-
-        let left = tokenkind_vector("0..10", true);
-        let right = vec![
-            number_token_from_str("0", None),
-            ExclusiveRange,
-            number_token_from_str("10", None),
-        ];
-        assert_eq!(left, right);
+        insta::assert_snapshot!(token_vector("0..10", true).snapshot());
     }
 
     #[test]
     fn range_inclusive_operator() {
-        use TokenKind::*;
-
-        let left = tokenkind_vector("0   ..= 10", true);
-        let right = vec![
-            number_token_from_str("0", None),
-            InclusiveRange,
-            number_token_from_str("10", None),
-        ];
-        assert_eq!(left, right);
+        insta::assert_snapshot!(token_vector("0..=10", true).snapshot());
     }
 }

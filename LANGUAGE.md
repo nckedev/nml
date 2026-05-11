@@ -15,12 +15,14 @@ type RecordType3 = RecordType | { extrafield Str }
 type EnumType = [
     // enum variant, zero sized 
     Variant1,
-    // tuple variant
+    // tuple variant, same as Variant2 (Str)
     Variant2 Str,
     // tuple variant
-    Variant2 Str Int,
+    Variant2 (Str, Int),
     // struct varinat
     Variant4 { a Int, b Int }
+    // anon enum variant
+    Variant5 [Var1, Var1, Var2 Str]
 ]
 
 [1, 2, 3,] 
@@ -74,13 +76,16 @@ let my_func2 = {
             b
 }
 
-fn MyModule.my_func4 = { self, b => 
+let my_func4 = { a Int, b Result Int x -> Result Int [TooLarge, TooSmall]* => 
+    let x = a + try b
 }
 fn sort a = { a List a, pred (x a , y b -> [GT, LT, EQ]) -> b List a => 
     let newList = []
     for x in a do 
 
 }
+
+// these are all the same 
 let sorted = List.sort [1,2,3,5] { a, b => a > b }
 let sorted = List.sort [1,2,3,5] { $0 > $1 }
 let sorted = List.sort [1,2,3,5] { > }

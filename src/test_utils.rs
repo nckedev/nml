@@ -1,5 +1,4 @@
 #![cfg(test)]
-use std::fmt::Display;
 
 use crate::{
     ast::Node,
@@ -7,13 +6,13 @@ use crate::{
 };
 
 pub fn assert_snapshot(v: impl SnapshotStr) {
-    insta::assert_snapshot!(v.print());
+    insta::assert_snapshot!(v.snapshot());
 }
 
 pub trait SnapshotStr {
     fn collect(&self, depth: usize, buf: &mut String);
 
-    fn print(&self) -> String {
+    fn snapshot(&self) -> String {
         let mut buf = String::with_capacity(100);
         self.collect(0, &mut buf);
         buf
@@ -81,17 +80,16 @@ impl SnapshotStr for Node {
 }
 
 impl SnapshotStr for Token {
-    fn collect(&self, depth: usize, buf: &mut String) {
+    fn collect(&self, _: usize, buf: &mut String) {
         let str = match &self.kind {
             TokenKind::String(str) => &format!("String \"{}\"", str),
             TokenKind::Char(c) => &format!("Char '{}'", c),
-            TokenKind::Number(number_token) => {
-                let mut str = format!("Number: {}", number_token.value);
-                if let Some(suffix) = &number_token.suffix {
-                    str.push_str(suffix);
-                }
-                &str.clone()
-            }
+            TokenKind::Number(number_token) => &format!(
+                "Number: {}{}{}",
+                number_token.prefix.as_deref().unwrap_or(""),
+                number_token.value,
+                number_token.suffix.as_deref().unwrap_or(""),
+            ),
             TokenKind::Identifier(ident) => &format!("Identifier: {}", ident),
             TokenKind::Litteral => "Litteral",
             TokenKind::Discard => "Discard",
@@ -135,10 +133,15 @@ impl SnapshotStr for Token {
             TokenKind::OpenEndRange => "OpenEndRange",
             TokenKind::MethodAccessor => "MethodAccessor",
             TokenKind::Plus => "Plus",
+            TokenKind::PlusAssign => "PlusAssign",
             TokenKind::Minus => "Minus",
+            TokenKind::MinusAssign => "MinusAssign",
             TokenKind::Mul => "Mul",
+            TokenKind::MulAssign => "MulAssign",
             TokenKind::Div => "Div",
+            TokenKind::DivAssign => "DivAssign",
             TokenKind::Mod => "Mod",
+            TokenKind::ModAssign => "ModAssign",
             TokenKind::Not => "Not",
             TokenKind::Neg => "Neg",
             TokenKind::Inc => "Inc",
@@ -151,13 +154,16 @@ impl SnapshotStr for Token {
                 match token_trivia {
                     token::TokenTrivia::Tab => str.push_str("Tab"),
                     token::TokenTrivia::Space => str.push_str("Space"),
-                    token::TokenTrivia::EOL => str.push_str("End of Line"),
-                    token::TokenTrivia::EOF => str.push_str("End of File"),
                 };
                 &str.clone()
             }
-            TokenKind::Error(token_error) => "Error",
+            TokenKind::Error(token_error) => match token_error {
+                token::TokenError::Uknown => "Error uknown",
+                token::TokenError::Unexpected(c) => &format!("Error Unexpected: {}", c),
+            },
             TokenKind::Empty => "Empty",
+            TokenKind::Eof => "EOF",
+            TokenKind::Eol => "EOL",
         };
 
         // let asdf     20:20 - 20:21
@@ -167,87 +173,3 @@ impl SnapshotStr for Token {
         ));
     }
 }
-
-// impl Display for Token {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         let str = match &self.kind {
-//             token::TokenKind::String(str) => &format!("String \"{}\"", str),
-//             token::TokenKind::Char(c) => &format!("Char '{}'", c),
-//             token::TokenKind::Number(number_token) => {
-//                 let mut str = String::from(&number_token.value);
-//                 if let Some(suffix) = &number_token.suffix {
-//                     str.push_str(suffix);
-//                 }
-//                 &str.clone()
-//             }
-//             token::TokenKind::Identifier(_) => "Identifier",
-//             token::TokenKind::Litteral => "Litteral",
-//             token::TokenKind::Discard => "Discard",
-//             token::TokenKind::Let => "Let",
-//             token::TokenKind::Trait => "Trait",
-//             token::TokenKind::Attribute => "Attribute",
-//             token::TokenKind::Type => "Type",
-//             token::TokenKind::Macro => "Macro",
-//             token::TokenKind::Todo => "Todo",
-//             token::TokenKind::Panic => "Panic",
-//             token::TokenKind::Module => "Module",
-//             token::TokenKind::Void => "Void",
-//             token::TokenKind::Pub => "Pub",
-//             token::TokenKind::Opaque => "Opaque",
-//             token::TokenKind::DBG => "DBG",
-//             token::TokenKind::If => "If",
-//             token::TokenKind::Else => "Else",
-//             token::TokenKind::For => "For",
-//             token::TokenKind::In => "In",
-//             token::TokenKind::Try => "Try",
-//             token::TokenKind::Guard => "Guard",
-//             token::TokenKind::Arrow => "Arrow",
-//             token::TokenKind::FatArrow => "FatArrow",
-//             token::TokenKind::OpenParen => "OpenParen",
-//             token::TokenKind::CloseParen => "CloseParen",
-//             token::TokenKind::OpenBracket => "OpenBracket",
-//             token::TokenKind::CloseBracket => "CloseBracket",
-//             token::TokenKind::OpenCurl => "OpenCurl",
-//             token::TokenKind::CloseCurl => "CloseCurl",
-//             token::TokenKind::Separator => "Separator",
-//             token::TokenKind::Assign => "Assign",
-//             token::TokenKind::Eq => "Eq",
-//             token::TokenKind::NotEq => "NotEq",
-//             token::TokenKind::Gt => "Gt",
-//             token::TokenKind::GtEq => "GtEq",
-//             token::TokenKind::Lt => "Lt",
-//             token::TokenKind::LtEq => "LtEq",
-//             token::TokenKind::InclusiveRange => "InclusiveRange",
-//             token::TokenKind::ExclusiveRange => "ExclusiveRange",
-//             token::TokenKind::OpenStartRange => "OpenStartRange",
-//             token::TokenKind::OpenEndRange => "OpenEndRange",
-//             token::TokenKind::MethodAccessor => "MethodAccessor",
-//             token::TokenKind::Plus => "Plus",
-//             token::TokenKind::Minus => "Minus",
-//             token::TokenKind::Mul => "Mul",
-//             token::TokenKind::Div => "Div",
-//             token::TokenKind::Mod => "Mod",
-//             token::TokenKind::Not => "Not",
-//             token::TokenKind::Neg => "Neg",
-//             token::TokenKind::Inc => "Inc",
-//             token::TokenKind::Dec => "Dec",
-//             token::TokenKind::And => "And",
-//             token::TokenKind::Or => "Or",
-//             token::TokenKind::AtMarker => "AtMarker",
-//             token::TokenKind::Trivia(token_trivia) => "Trivia",
-//             token::TokenKind::Error(token_error) => "Error",
-//             token::TokenKind::Empty => "Empty",
-//         };
-//
-//         // let asdf     20:20 - 20:21
-//         write!(
-//             f,
-//             "{}",
-//             format!(
-//                 "{:>4}:{:<2} - {:>4}:{:<2} {}\n",
-//                 self.span.start.row, self.span.start.col, self.span.end.row, self.span.end.col, str
-//             )
-//         )?;
-//         Ok(())
-//     }
-// }

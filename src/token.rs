@@ -15,6 +15,7 @@ pub enum TokenKind {
     // FloatLit(f64),
     Identifier(String),
     Litteral,
+    /// `_`
     Discard,
 
     //keywords
@@ -47,39 +48,72 @@ pub enum TokenKind {
     Guard,
 
     //arrows
+    /// ->
     Arrow,
+    /// =>
     FatArrow,
 
     //one char
+    /// (
     OpenParen,
+    /// )
     CloseParen,
+    /// [
     OpenBracket,
+    /// ]
     CloseBracket,
+    /// {
     OpenCurl,
+    /// }
     CloseCurl,
+    /// ,
     Separator,
 
     //one or two char
+    /// =
     Assign,
+    /// ==
     Eq,
+    /// !=
     NotEq,
+    /// `>`
     Gt,
+    /// `>=`
     GtEq,
+    /// `<`
     Lt,
+    /// `<=`
     LtEq,
 
+    /// ..=
     InclusiveRange,
+    /// ..
     ExclusiveRange,
     OpenStartRange,
     OpenEndRange,
     MethodAccessor,
 
     //binary operators
+    /// +
     Plus,
+    /// +=
+    PlusAssign,
+    /// -
     Minus,
+    /// -=
+    MinusAssign,
+    /// *
     Mul,
+    /// *=
+    MulAssign,
+    /// /
     Div,
+    /// /=
+    DivAssign,
+    /// %
     Mod,
+    /// %=
+    ModAssign,
 
     //unary operators
     Not,
@@ -91,6 +125,7 @@ pub enum TokenKind {
     And,
     Or,
 
+    /// @
     AtMarker,
 
     //msc
@@ -98,6 +133,8 @@ pub enum TokenKind {
     Error(TokenError),
     #[default]
     Empty,
+    Eof,
+    Eol,
 }
 
 impl TokenKind {
@@ -181,6 +218,13 @@ impl Display for TokenKind {
             TokenKind::Pub => write!(f, "pub"),
             TokenKind::Opaque => write!(f, "opaque"),
             TokenKind::Trait => write!(f, "trait"),
+            TokenKind::Eof => write!(f, "end of file"),
+            TokenKind::Eol => write!(f, "end of line"),
+            TokenKind::PlusAssign => write!(f, "plus assign"),
+            TokenKind::MinusAssign => write!(f, "minus assign"),
+            TokenKind::MulAssign => write!(f, "mul assign"),
+            TokenKind::DivAssign => write!(f, "div assign"),
+            TokenKind::ModAssign => write!(f, "mod assign"),
         }
     }
 }
@@ -188,7 +232,16 @@ impl Display for TokenKind {
 #[derive(Debug, PartialEq, Clone)]
 pub struct NumberToken {
     pub value: String,
+    /// prefixes
+    /// 0x - hex 0x23AF
+    /// 0b - bin 0b0101_0111
+    /// 0o - oct 0o1281_1277
+    /// .  - dec .1 == 0.1
     pub prefix: Option<String>,
+    /// suffixes
+    /// f - float
+    /// u - unsigned int
+    /// e - sientific notation ue .2e-23
     pub suffix: Option<String>,
 }
 
@@ -202,8 +255,6 @@ pub enum TokenError {
 pub enum TokenTrivia {
     Tab,
     Space,
-    EOL,
-    EOF,
 }
 
 /// Token
@@ -217,7 +268,7 @@ impl LineSeparator for Token {
     type Item = Token;
 
     fn is_line_separator(x: &Self::Item) -> bool {
-        x.kind == TokenKind::Trivia(TokenTrivia::EOL)
+        x.kind == TokenKind::Eol
     }
 }
 

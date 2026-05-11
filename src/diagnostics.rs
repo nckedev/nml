@@ -64,25 +64,12 @@ impl TryFrom<ParseErr> for DiagEntry {
 
     fn try_from(value: ParseErr) -> Result<Self, Self::Error> {
         match value {
-            ParseErr::UnexpectedToken { token, expected } => {
-                let expected_str = match expected.len() {
-                    0 => Err(())?,
-                    1 => expected.first().unwrap().to_string(),
-                    _ => {
-                        let buffer = String::with_capacity(10);
-                        expected.iter().fold(buffer, |mut b, e| {
-                            b.push_str(&format!("{e},"));
-                            b
-                        })
-                    }
-                };
-                Ok(DiagEntry {
-                    id: DiagCode::UNEXPECTED_TOKEN,
-                    severity: DiagSeverity::Error,
-                    span: token.span,
-                    message: format!("Expected {}, found {}", expected_str, token),
-                })
-            }
+            ParseErr::UnexpectedToken { token, expected } => Ok(DiagEntry {
+                id: DiagCode::UNEXPECTED_TOKEN,
+                severity: DiagSeverity::Error,
+                span: token.span,
+                message: format!("Expected {}, found {}", expected, token),
+            }),
             _ => Err(()),
         }
     }

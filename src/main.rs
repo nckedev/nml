@@ -57,8 +57,8 @@ fn main() -> Result<(), LexerErr> {
     let test_str1 = "let abc = 123 + 1 * 3";
     // let test_str1 = "mod test\nlet a = 123 + 11 * 2 +3";
     let mut diagnostics = Diagnostics::new();
-    let mut t = Lexer::new(test_str1, &mut diagnostics);
-    let tokens = t.tokenize()?;
+    let mut t = Lexer::new(test_str1);
+    let tokens = t.tokenize(&mut diagnostics)?;
 
     for t in &tokens {
         println!("{t}")

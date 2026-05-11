@@ -1,0 +1,6 @@
+---
+source: src/parser.rs
+assertion_line: 397
+expression: node.nodes.snapshot()
+---
+LetStmt

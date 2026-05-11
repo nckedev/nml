@@ -26,10 +26,7 @@ pub struct Parser<'a> {
 #[derive(Debug)]
 pub enum ParseErr {
     UnexpectedEndOfFile,
-    UnexpectedToken {
-        token: Token,
-        expected: Vec<TokenKind>,
-    },
+    UnexpectedToken { token: Token, expected: String },
     NotSupported,
     NotYetImplemented,
 }
@@ -200,8 +197,8 @@ impl<'a> Parser<'a> {
                     body: Box::new(type_class_body),
                 }
             }
-            TokenKind::Trivia(TokenTrivia::EOL) => self.parse_stmt()?,
-            TokenKind::Trivia(TokenTrivia::EOF) => Node::EOF,
+            TokenKind::Eol => self.parse_stmt()?,
+            TokenKind::Eof => Node::EOF,
             _x => {
                 self.diagnostics
                     .push(DiagEntry::empty("invalid token".to_string()));
@@ -245,7 +242,7 @@ impl<'a> Parser<'a> {
                 );
                 Err(ParseErr::UnexpectedToken {
                     token,
-                    expected: vec![TokenKind::Identifier("Ident".to_string())],
+                    expected: "Identifier".to_string(),
                 })
             }
         }
@@ -394,7 +391,7 @@ mod tests {
         let diag = &mut Diagnostics::new();
         let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
-        insta::assert_snapshot!(node.nodes.print());
+        insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
     }
 }

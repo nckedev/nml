@@ -8,7 +8,7 @@ pub fn ident(t: Token) -> Result<(String, Span), ParseErr> {
         TokenKind::Identifier(ident) => Ok((ident, t.span)),
         _ => Err(ParseErr::UnexpectedToken {
             token: t,
-            expected: vec![TokenKind::Identifier("Ident".to_string())],
+            expected: "Identifier".to_string(),
         }),
     }
 }
@@ -18,7 +18,7 @@ pub fn assign(t: Token) -> Result<(), ParseErr> {
         TokenKind::Assign => Ok(()),
         _ => Err(ParseErr::UnexpectedToken {
             token: t,
-            expected: vec![TokenKind::Assign],
+            expected: "Assignment (=)".to_string(),
         }),
     }
 }
@@ -28,7 +28,7 @@ pub fn open_scope(t: Token) -> Result<(), ParseErr> {
         TokenKind::OpenCurl => Ok(()),
         _ => Err(ParseErr::UnexpectedToken {
             token: t,
-            expected: vec![TokenKind::OpenCurl],
+            expected: "{".to_string(),
         }),
     }
 }
@@ -45,11 +45,7 @@ pub fn type_classification(t: Token) -> Result<Token, ParseErr> {
         TokenKind::OpenCurl | TokenKind::OpenBracket | TokenKind::OpenParen => Ok(t),
         _ => Err(ParseErr::UnexpectedToken {
             token: t,
-            expected: vec![
-                TokenKind::CloseCurl,
-                TokenKind::CloseBracket,
-                TokenKind::CloseParen,
-            ],
+            expected: "{, [ or (".to_string(),
         }),
     }
 }
