@@ -92,8 +92,18 @@ let sorted = List.sort [1,2,3,5] { > }
 let sorted = List.sort [1,2,3,5]  > 
 
 
-test "my_func2 1 2 == 3"
+test "my_func2 1 2 == 3" {
     assert my_func2 1 2, 3
+}
+
+let div = { class Str, body { () -> Html } -> Html => 
+    Html.render "<div class={class}>" ++ body ++ "</div>"
+}
+
+let body = div class="btn mx-auto"  body = {
+    span class="btn" { text "test" }
+}
+
 ```
 
 type Result v e = [Ok v, Err e]

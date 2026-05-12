@@ -34,6 +34,7 @@ impl SnapshotStr for Node {
     fn collect(&self, depth: usize, buf: &mut String) {
         buf.push_str(&"\t".repeat(depth));
         match self {
+            Node::Root { .. } => buf.push_str("Root"),
             Node::VariableAccess => buf.push_str("VariableAccess"),
             Node::FunctionCall => buf.push_str("FunctionCall"),
             Node::MethodCall => buf.push_str("MethodCall"),
@@ -49,12 +50,16 @@ impl SnapshotStr for Node {
             Node::BlockStmt => buf.push_str("BlockStmt\n"),
             Node::UseStmt {} => buf.push_str("UseStmt\n"),
             Node::ModuleDeclr { ident, body } => buf.push_str("ModuleDeclr\n"),
-            Node::LetStmt { span, ident, expr } => buf.push_str("LetStmt\n"),
-            Node::Ident { ident } => buf.push_str("Ident\n"),
+            Node::LetStmt { span, ident, expr } => {
+                buf.push_str("LetStmt\n");
+                ident.collect(depth + 1, buf);
+                expr.collect(depth + 1, buf);
+            }
+            Node::Ident { ident } => buf.push_str(&format!("Ident {}\n", ident.value)),
             Node::TypeIdent { ident } => buf.push_str("TypeIdent\n"),
             Node::IfExpr => buf.push_str("IfExpr\n"),
             Node::MatchExpr => buf.push_str("MatchExpr\n"),
-            Node::ConstExpr { expr } => buf.push_str("ConstExpr\n"),
+            Node::ConstExpr { expr } => buf.push_str(&format!("ConstExpr {}\n", expr)),
             Node::BinaryExpr {
                 left,
                 operator,

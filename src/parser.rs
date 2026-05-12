@@ -67,10 +67,16 @@ impl<'a> Parser<'a> {
 
         //self.print();
 
-        let b = self.parse_stmt();
+        let b = match self.parse_stmt() {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("{:?}", e);
+                panic!("parser err");
+            }
+        };
         let mut ast = Ast::new();
         // debug::print(&b);
-        ast.add(b?);
+        ast.add(b);
 
         Ok(ast)
     }
@@ -219,7 +225,9 @@ impl<'a> Parser<'a> {
 
         Ok(Node::LetStmt {
             span: Span::from((span.start, SourceIndex::from((0, 0)))),
-            ident: Identifier::new(ident, span),
+            ident: Box::new(Node::Ident {
+                ident: Identifier::new(ident, span),
+            }),
             expr: Box::new(expr),
         })
     }
@@ -376,7 +384,7 @@ mod tests {
     fn test_parse_let_binding() -> Result<(), ParseErr> {
         let tokens = [
             TokenKind::Let,
-            TokenKind::Identifier("Test".to_string()),
+            TokenKind::Identifier("test".to_string()),
             TokenKind::Assign,
             TokenKind::Number(NumberToken {
                 value: "1".to_string(),

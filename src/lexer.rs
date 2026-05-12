@@ -252,6 +252,7 @@ impl Lexer {
                 {
                     self.stream.take();
                     suffix = NumberTokenSuffix::Float;
+                    break;
                 }
                 SourceChar {
                     ch: 'a'..='f' | 'A'..='F',

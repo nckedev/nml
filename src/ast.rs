@@ -43,7 +43,7 @@ impl Ast<Untyped> {
                 }
             }
             Node::LetStmt { span, ident, expr } => {
-                print!("Let {} @ {} expr : ", ident, span);
+                print!("Let  @  expr : ");
                 println!("{:?}", Ast::print_node(expr));
             }
             Node::BinaryExpr {
@@ -76,6 +76,9 @@ impl<T> Display for Ast<T> {
 // !!! expression is something that evaluates to a value
 #[derive(Debug)]
 pub enum Node {
+    Root {
+        list: Vec<Node>,
+    },
     VariableAccess,
     FunctionCall,
     MethodCall,
@@ -98,11 +101,11 @@ pub enum Node {
     },
     LetStmt {
         span: Span,
-        ident: Identifier,
+        ident: Box<Node>,
         expr: Box<Node>,
     },
     Ident {
-        ident: String,
+        ident: Identifier,
     },
     TypeIdent {
         ident: String,
