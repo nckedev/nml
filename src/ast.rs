@@ -30,34 +30,34 @@ impl Ast<Untyped> {
     }
 
     fn print_node(node: &Node) {
-        match node {
-            Node::TypeDecl {
+        match &node.kind {
+            NodeKind::TypeDecl {
                 type_id: _,
                 ident: _,
                 body: _,
             } => println!("typedecl"),
-            Node::ModuleDeclr { ident, body } => {
+            NodeKind::ModuleDeclr { ident, body } => {
                 println!("module {} body: ", ident);
                 for x in body {
-                    Ast::print_node(x);
+                    Ast::print_node(&x);
                 }
             }
-            Node::LetStmt { span, ident, expr } => {
+            NodeKind::LetStmt { ident, expr } => {
                 print!("Let  @  expr : ");
-                println!("{:?}", Ast::print_node(expr));
+                println!("{:?}", Ast::print_node(&expr));
             }
-            Node::BinaryExpr {
+            NodeKind::BinaryExpr {
                 left,
                 operator,
                 right,
             } => {
                 print!("(");
-                Ast::print_node(left);
+                Ast::print_node(&left);
                 print!("{}", operator);
-                Ast::print_node(right);
+                Ast::print_node(&right);
                 print!(")");
             }
-            Node::BooleanExpr {
+            NodeKind::BooleanExpr {
                 left: _,
                 operator: _,
                 right: _,
@@ -73,9 +73,15 @@ impl<T> Display for Ast<T> {
     }
 }
 
+#[derive(Debug)]
+pub struct Node {
+    pub span: Span,
+    pub kind: NodeKind,
+}
+
 // !!! expression is something that evaluates to a value
 #[derive(Debug)]
-pub enum Node {
+pub enum NodeKind {
     Root {
         list: Vec<Node>,
     },
@@ -100,7 +106,6 @@ pub enum Node {
         body: Vec<Node>,
     },
     LetStmt {
-        span: Span,
         ident: Box<Node>,
         expr: Box<Node>,
     },

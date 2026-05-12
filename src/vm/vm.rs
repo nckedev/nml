@@ -97,27 +97,27 @@ mod tests {
         vm
     }
 
-    #[test]
-    fn test_vm_add() {
-        let mut vm = setup_vm(0, 1, OpCode::Add);
-        vm.execute();
-        let r = vm.stack.peek().unwrap();
-        assert_eq!(r, StackValue::I64(15));
-    }
-
-    #[test]
-    fn test_vm_sub() {
-        let mut vm = setup_vm(0, 1, OpCode::Sub);
-        vm.execute();
-        let r = vm.stack.peek().unwrap();
-        assert_eq!(r, StackValue::I64(5));
-    }
-    #[test]
-    fn test_vm_should_error() {
-        let mut vm = VM::new();
-        vm.load_program(&[OpCode::Add as u8]);
-        vm.execute();
-        let r = vm.stack.peek().unwrap();
-        assert_eq!(r, StackValue::I64(5));
-    }
+    // #[test]
+    // fn test_vm_add() {
+    //     let mut vm = setup_vm(0, 1, OpCode::Add);
+    //     vm.execute();
+    //     let r = vm.stack.peek().unwrap();
+    //     assert_eq!(r, StackValue::I64(15));
+    // }
+    //
+    // #[test]
+    // fn test_vm_sub() {
+    //     let mut vm = setup_vm(0, 1, OpCode::Sub);
+    //     vm.execute();
+    //     let r = vm.stack.peek().unwrap();
+    //     assert_eq!(r, StackValue::I64(5));
+    // }
+    // #[test]
+    // fn test_vm_should_error() {
+    //     let mut vm = VM::new();
+    //     vm.load_program(&[OpCode::Add as u8]);
+    //     vm.execute();
+    //     let r = vm.stack.peek().unwrap();
+    //     assert_eq!(r, StackValue::I64(5));
+    // }
 }

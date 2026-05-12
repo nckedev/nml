@@ -33,9 +33,9 @@ pub fn open_scope(t: Token) -> Result<(), ParseErr> {
     }
 }
 
-pub fn type_decl_end(t: Token) -> Result<(), ParseErr> {
+pub fn type_decl_end(t: Token) -> Result<Token, ParseErr> {
     match t.kind {
-        TokenKind::CloseCurl => Ok(()),
+        TokenKind::CloseCurl => Ok(t),
         _ => panic!(),
     }
 }

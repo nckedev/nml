@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
 use crate::{
-    ast::{Ast, Node, Untyped},
+    ast::{Ast, Node, NodeKind, Untyped},
     diagnostics::{DiagEntry, DiagSeverity::Error, Diagnostics},
     expected_token,
     identifier::Identifier,
@@ -94,10 +94,13 @@ impl<'a> Parser<'a> {
         while let Some(token) = self.stream.take_if_fn(expected_token::operator_addative) {
             let op = token.kind;
             let right = self.parse_multiplicative_expr()?;
-            left = Node::BinaryExpr {
-                left: Box::new(left),
-                operator: op.into(),
-                right: Box::new(right),
+            left = Node {
+                span: Span::default(),
+                kind: NodeKind::BinaryExpr {
+                    left: Box::new(left),
+                    operator: op.into(),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -113,10 +116,13 @@ impl<'a> Parser<'a> {
         {
             let op = token.kind;
             let right = self.parse_const_expr()?;
-            left = Node::BinaryExpr {
-                left: Box::new(left),
-                operator: op.into(),
-                right: Box::new(right),
+            left = Node {
+                span: Span::default(),
+                kind: NodeKind::BinaryExpr {
+                    left: Box::new(left),
+                    operator: op.into(),
+                    right: Box::new(right),
+                },
             };
         }
 
@@ -129,7 +135,10 @@ impl<'a> Parser<'a> {
         };
 
         let res = match token.kind {
-            TokenKind::Number(x) => Node::ConstExpr { expr: x.value },
+            TokenKind::Number(x) => Node {
+                span: Span::default(),
+                kind: NodeKind::ConstExpr { expr: x.value },
+            },
             TokenKind::Identifier(_ident) => {
                 // TODO: variable lookup
                 todo!()
@@ -139,7 +148,10 @@ impl<'a> Parser<'a> {
                 self.diagnostics
                     .push_expected_token_missmatch(&x, "number".into(), &token.span);
                 println!("invalid 2 {:?}", x);
-                Node::Invalid
+                Node {
+                    span: Span::default(),
+                    kind: NodeKind::Invalid,
+                }
             }
         };
 
@@ -197,14 +209,20 @@ impl<'a> Parser<'a> {
 
                 //take the  '{'
 
-                Node::TypeDecl {
-                    type_id: self.id_generator.next_type(),
-                    ident: Identifier::new(ident, span),
-                    body: Box::new(type_class_body),
+                Node {
+                    span: Span::default(),
+                    kind: NodeKind::TypeDecl {
+                        type_id: self.id_generator.next_type(),
+                        ident: Identifier::new(ident),
+                        body: Box::new(type_class_body),
+                    },
                 }
             }
             TokenKind::Eol => self.parse_stmt()?,
-            TokenKind::Eof => Node::EOF,
+            TokenKind::Eof => Node {
+                span: stmt.span,
+                kind: NodeKind::EOF,
+            },
             _x => {
                 self.diagnostics
                     .push(DiagEntry::empty("invalid token".to_string()));
@@ -216,19 +234,24 @@ impl<'a> Parser<'a> {
 
     fn parse_let_binding(&mut self) -> Result<Node, ParseErr> {
         // take and discard the let keyword
-        let _ = self.stream.take();
-        let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
+        let Token { span: let_span, .. } = self.stream.take_expecting(expected_token::any)?;
+        let (ident, ident_span) = self.stream.take_expecting(expected_token::ident)?;
 
         //take the '=' token
         self.stream.take_expecting(expected_token::assign)?;
         let expr = self.parse_addative_expr()?;
 
-        Ok(Node::LetStmt {
-            span: Span::from((span.start, SourceIndex::from((0, 0)))),
-            ident: Box::new(Node::Ident {
-                ident: Identifier::new(ident, span),
-            }),
-            expr: Box::new(expr),
+        Ok(Node {
+            span: Span::merge(let_span, expr.span),
+            kind: NodeKind::LetStmt {
+                ident: Box::new(Node {
+                    span: ident_span,
+                    kind: NodeKind::Ident {
+                        ident: Identifier::new(ident),
+                    },
+                }),
+                expr: Box::new(expr),
+            },
         })
     }
 
@@ -238,9 +261,12 @@ impl<'a> Parser<'a> {
 
         let _s = self.id_generator.next_scope();
         match token.kind {
-            TokenKind::Identifier(ident) => Ok(Node::ModuleDeclr {
-                ident,
-                body: vec![self.parse_stmt()?],
+            TokenKind::Identifier(ident) => Ok(Node {
+                span: Span::default(),
+                kind: NodeKind::ModuleDeclr {
+                    ident,
+                    body: vec![self.parse_stmt()?],
+                },
             }),
             _ => {
                 self.diagnostics.push_expected_token_missmatch(
@@ -261,14 +287,17 @@ impl<'a> Parser<'a> {
             .stream
             .take_expecting(expected_token::type_classification)?;
 
-        let _body = match token.kind {
+        let body = match token.kind {
             TokenKind::OpenCurl => self.parse_struct()?,
             TokenKind::OpenBracket => self.parse_enum()?,
             TokenKind::OpenParen => self.parse_tuple()?,
             // TokenKind::Interface => self.parse_interface(scope)?,
             _ => unreachable!(),
         };
-        Ok(Node::Invalid)
+        Ok(Node {
+            span: Span::merge(token.span, body.span),
+            kind: NodeKind::Invalid,
+        })
     }
 
     fn parse_struct(&mut self) -> Result<Node, ParseErr> {
@@ -280,10 +309,13 @@ impl<'a> Parser<'a> {
         //part of a type declr
         let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
         let (_type_ident, _type_span) = self.stream.take_expecting(expected_token::ident)?;
-        let _ = self.stream.take_expecting(expected_token::type_decl_end);
+        let end = self.stream.take_expecting(expected_token::type_decl_end)?;
 
-        Ok(Node::RecordFieldDecl {
-            name_ident: Identifier { value: ident, span },
+        Ok(Node {
+            span: Span::merge(span, end.span),
+            kind: NodeKind::RecordFieldDecl {
+                name_ident: Identifier { value: ident },
+            },
         })
     }
     fn parse_interface(&mut self) -> Result<Node, ParseErr> {
@@ -353,7 +385,6 @@ mod tests {
         parser::Parser,
         scope::IdGenerator,
         span::Span,
-        std::assert,
         test_utils::{self, SnapshotStr},
         token::{NumberToken, NumberTokenPrefix, NumberTokenSuffix},
     };

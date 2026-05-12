@@ -4,12 +4,11 @@ use crate::span::Span;
 pub(crate) struct Identifier {
     //TODO: Fully qualified name
     pub value: String,
-    pub span: Span,
 }
 
 impl Identifier {
-    pub fn new(value: String, span: Span) -> Self {
-        Self { value, span }
+    pub fn new(value: String) -> Self {
+        Self { value }
     }
 }
 

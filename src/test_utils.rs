@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use crate::{
-    ast::Node,
+    ast::{Node, NodeKind},
     token::{self, Token, TokenKind},
 };
 
@@ -33,12 +33,12 @@ where
 impl SnapshotStr for Node {
     fn collect(&self, depth: usize, buf: &mut String) {
         buf.push_str(&"\t".repeat(depth));
-        match self {
-            Node::Root { .. } => buf.push_str("Root"),
-            Node::VariableAccess => buf.push_str("VariableAccess"),
-            Node::FunctionCall => buf.push_str("FunctionCall"),
-            Node::MethodCall => buf.push_str("MethodCall"),
-            Node::TypeDecl {
+        match &self.kind {
+            NodeKind::Root { .. } => buf.push_str("Root"),
+            NodeKind::VariableAccess => buf.push_str("VariableAccess"),
+            NodeKind::FunctionCall => buf.push_str("FunctionCall"),
+            NodeKind::MethodCall => buf.push_str("MethodCall"),
+            NodeKind::TypeDecl {
                 type_id,
                 ident,
                 body,
@@ -46,21 +46,21 @@ impl SnapshotStr for Node {
                 buf.push_str("TypeDecl\n");
                 body.collect(depth + 1, buf)
             }
-            Node::RecordFieldDecl { name_ident } => buf.push_str("RecordFieldDecl\n"),
-            Node::BlockStmt => buf.push_str("BlockStmt\n"),
-            Node::UseStmt {} => buf.push_str("UseStmt\n"),
-            Node::ModuleDeclr { ident, body } => buf.push_str("ModuleDeclr\n"),
-            Node::LetStmt { span, ident, expr } => {
+            NodeKind::RecordFieldDecl { name_ident } => buf.push_str("RecordFieldDecl\n"),
+            NodeKind::BlockStmt => buf.push_str("BlockStmt\n"),
+            NodeKind::UseStmt {} => buf.push_str("UseStmt\n"),
+            NodeKind::ModuleDeclr { ident, body } => buf.push_str("ModuleDeclr\n"),
+            NodeKind::LetStmt { ident, expr } => {
                 buf.push_str("LetStmt\n");
                 ident.collect(depth + 1, buf);
                 expr.collect(depth + 1, buf);
             }
-            Node::Ident { ident } => buf.push_str(&format!("Ident {}\n", ident.value)),
-            Node::TypeIdent { ident } => buf.push_str("TypeIdent\n"),
-            Node::IfExpr => buf.push_str("IfExpr\n"),
-            Node::MatchExpr => buf.push_str("MatchExpr\n"),
-            Node::ConstExpr { expr } => buf.push_str(&format!("ConstExpr {}\n", expr)),
-            Node::BinaryExpr {
+            NodeKind::Ident { ident } => buf.push_str(&format!("Ident {}\n", ident.value)),
+            NodeKind::TypeIdent { ident } => buf.push_str("TypeIdent\n"),
+            NodeKind::IfExpr => buf.push_str("IfExpr\n"),
+            NodeKind::MatchExpr => buf.push_str("MatchExpr\n"),
+            NodeKind::ConstExpr { expr } => buf.push_str(&format!("ConstExpr {}\n", expr)),
+            NodeKind::BinaryExpr {
                 left,
                 operator,
                 right,
@@ -70,16 +70,16 @@ impl SnapshotStr for Node {
                 buf.push_str(&format!("\t{}", operator));
                 right.collect(depth + 1, buf);
             }
-            Node::BooleanExpr {
+            NodeKind::BooleanExpr {
                 left,
                 operator,
                 right,
             } => todo!(),
-            Node::Block { stmts, span } => buf.push_str("Block\n"),
-            Node::UnaryExpr => buf.push_str("UnaryExpr\n"),
-            Node::EOF => buf.push_str("EOF\n"),
-            Node::Invalid => buf.push_str("Invalid\n"),
-            Node::Empty => buf.push_str("Empty\n"),
+            NodeKind::Block { stmts, span } => buf.push_str("Block\n"),
+            NodeKind::UnaryExpr => buf.push_str("UnaryExpr\n"),
+            NodeKind::EOF => buf.push_str("EOF\n"),
+            NodeKind::Invalid => buf.push_str("Invalid\n"),
+            NodeKind::Empty => buf.push_str("Empty\n"),
         };
     }
 }

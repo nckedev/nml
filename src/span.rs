@@ -8,7 +8,14 @@ pub(crate) struct Span {
     pub end: SourceIndex,
 }
 
-impl Span {}
+impl Span {
+    pub fn merge(start: Span, end: Span) -> Span {
+        Span {
+            start: start.start,
+            end: end.end,
+        }
+    }
+}
 
 impl From<(SourceIndex, SourceIndex)> for Span {
     fn from(value: (SourceIndex, SourceIndex)) -> Self {
