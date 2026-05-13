@@ -1,4 +1,4 @@
-use std::{cell::RefCell, fmt::Display, marker::PhantomData, rc::Weak};
+use std::{fmt::Display, marker::PhantomData};
 
 use crate::{identifier::Identifier, parser::Operator, scope::TypeId, span::Span};
 
@@ -42,7 +42,7 @@ impl Ast<Untyped> {
                     Ast::print_node(&x);
                 }
             }
-            NodeKind::LetStmt { ident, expr } => {
+            NodeKind::LetStmt { ident: _, expr } => {
                 print!("Let  @  expr : ");
                 println!("{:?}", Ast::print_node(&expr));
             }

@@ -61,7 +61,7 @@ impl Lexer {
         }
     }
 
-    pub fn tokenize(&mut self, diagnostics: &mut Diagnostics) -> Result<Vec<Token>, LexerErr> {
+    pub fn tokenize(&mut self, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>, LexerErr> {
         let mut tokens = vec![];
         let mut start = self.stream.index;
 

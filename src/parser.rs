@@ -1,16 +1,11 @@
-use std::{
-    fmt::Display,
-    rc::{Rc, Weak},
-};
+use std::fmt::Display;
 
 use crate::{
     ast::{Ast, Node, NodeKind, Untyped},
     diagnostics::{DiagEntry, DiagSeverity::Error, Diagnostics},
     expected_token,
     identifier::Identifier,
-    log::Log,
     scope::{IdGenerator, ScopeId, TypeId},
-    source_char::SourceIndex,
     span::Span,
 };
 use crate::{
@@ -39,7 +34,7 @@ pub trait MakeDiagnostics<T> {
 }
 
 impl<T> MakeDiagnostics<T> for Result<T, ParseErr> {
-    fn make_diagnostics(self, diagnostics: &mut Diagnostics) -> Result<T, ParseErr> {
+    fn make_diagnostics(self, _diagnostics: &mut Diagnostics) -> Result<T, ParseErr> {
         self
     }
 }
@@ -237,7 +232,7 @@ impl<'a> Parser<'a> {
         // }
 
         // take identifier
-        let type_kw = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
+        let _type_kw = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
 
         let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
 

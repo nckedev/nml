@@ -1,4 +1,3 @@
-use crate::span::Span;
 
 #[derive(Debug)]
 pub(crate) struct Identifier {
