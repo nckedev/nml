@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::collections::VecDeque;
 
-use crate::{diagnostics::DiagEntry, parser::NoMoreTokens, source_char::SourceIndex};
+use crate::{diagnostics::DiagEntry, parser::EndOfStream, source_char::SourceIndex};
 pub trait LineSeparator {
     type Item;
     fn is_line_separator(x: &Self::Item) -> bool;
@@ -122,18 +122,22 @@ where
     pub fn take_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E>
     where
         E: TryInto<DiagEntry>,
-        E: NoMoreTokens,
+        E: EndOfStream,
     {
         let Some(v) = self.take() else {
-            return Err(E::no_more_tokens());
+            return Err(E::end_of_stream());
         };
 
         pred(v)
     }
 
-    pub fn peek_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E> {
+    pub fn peek_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E>
+    where
+        E: TryInto<DiagEntry>,
+        E: EndOfStream,
+    {
         let Some(v) = self.peek() else {
-            panic!("TODO convert to E");
+            return Err(E::end_of_stream());
         };
         pred(v.clone())
     }
@@ -173,6 +177,10 @@ where
         } else {
             self.index.step_col()
         }
+    }
+
+    pub fn skip_until(&mut self, pred: fn(&T) -> bool) {
+        while let Some(_) = self.take_if_fn(pred) {}
     }
 }
 

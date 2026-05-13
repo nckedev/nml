@@ -135,6 +135,7 @@ pub enum TokenKind {
     Empty,
     Eof,
     Eol,
+    Invalid,
 }
 
 impl TokenKind {
@@ -225,6 +226,7 @@ impl Display for TokenKind {
             TokenKind::MulAssign => write!(f, "mul assign"),
             TokenKind::DivAssign => write!(f, "div assign"),
             TokenKind::ModAssign => write!(f, "mod assign"),
+            _ => write!(f, "NOT IMPLEMENTED"),
         }
     }
 }

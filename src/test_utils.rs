@@ -182,6 +182,7 @@ impl SnapshotStr for Token {
             TokenKind::Empty => "Empty",
             TokenKind::Eof => "EOF",
             TokenKind::Eol => "EOL",
+            TokenKind::Invalid => "Invalid",
         };
 
         // let asdf     20:20 - 20:21

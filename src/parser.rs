@@ -1,4 +1,7 @@
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    rc::{Rc, Weak},
+};
 
 use crate::{
     ast::{Ast, Node, NodeKind, Untyped},
@@ -31,12 +34,22 @@ pub enum ParseErr {
     NotYetImplemented,
 }
 
-pub trait NoMoreTokens {
-    fn no_more_tokens() -> Self;
+pub trait MakeDiagnostics<T> {
+    fn make_diagnostics(self, diagnostics: &mut Diagnostics) -> Result<T, ParseErr>;
 }
 
-impl NoMoreTokens for ParseErr {
-    fn no_more_tokens() -> Self {
+impl<T> MakeDiagnostics<T> for Result<T, ParseErr> {
+    fn make_diagnostics(self, diagnostics: &mut Diagnostics) -> Result<T, ParseErr> {
+        self
+    }
+}
+
+pub trait EndOfStream {
+    fn end_of_stream() -> Self;
+}
+
+impl EndOfStream for ParseErr {
+    fn end_of_stream() -> Self {
         Self::UnexpectedEndOfFile
     }
 }
@@ -63,20 +76,13 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Result<Ast<Untyped>, ParseErr> {
-        Log::info("Parsing");
-
         //self.print();
 
-        let b = match self.parse_stmt() {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("{:?}", e);
-                panic!("parser err");
-            }
-        };
         let mut ast = Ast::new();
-        // debug::print(&b);
-        ast.add(b);
+
+        while let Ok(stmt) = self.parse_stmt() {
+            ast.add(stmt);
+        }
 
         Ok(ast)
     }
@@ -175,61 +181,29 @@ impl<'a> Parser<'a> {
         // debug::print(&token);
 
         let res = match stmt.kind {
-            TokenKind::Let => self.parse_let_binding()?,
-            TokenKind::Module => self.parse_module_decl()?,
-            TokenKind::Type => {
-                // TODO: type declr, and properties can have attributes
-                // type RecordType = {
-                //    @attr ident Type,
-                //    @attr ident2 Type2,
-                // }
-
-                // take identifier
-                let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
-                if ident.chars().next().is_some_and(char::is_lowercase) {
-                    self.diagnostics
-                        .push_message(Error, "Type Identifiers need to be Capitalized");
-                }
-
-                // take the '='
-                let _ = self.stream.take_expecting(expected_token::assign)?;
-
-                // take the 'struct | interface | enum'
-                let token = self
-                    .stream
-                    .take_expecting(expected_token::type_classification)?;
-
-                let type_class_body = match token.kind {
-                    TokenKind::OpenCurl => self.parse_struct()?,
-                    TokenKind::OpenBracket => self.parse_enum()?,
-                    TokenKind::OpenParen => self.parse_tuple()?,
-                    // TokenKind::Interface => self.parse_interface()?,
-                    _ => unreachable!(),
-                };
-
-                //take the  '{'
-
-                Node {
-                    span: Span::default(),
-                    kind: NodeKind::TypeDecl {
-                        type_id: self.id_generator.next_type(),
-                        ident: Identifier::new(ident),
-                        body: Box::new(type_class_body),
-                    },
-                }
-            }
-            TokenKind::Eol => self.parse_stmt()?,
-            TokenKind::Eof => Node {
+            TokenKind::Let => self.parse_let_binding(),
+            TokenKind::Module => self.parse_module_decl(),
+            TokenKind::Type => self.parse_type_decl(),
+            TokenKind::Eol => self.parse_stmt(),
+            TokenKind::Eof => Ok(Node {
                 span: stmt.span,
                 kind: NodeKind::EOF,
-            },
+            }),
             _x => {
                 self.diagnostics
                     .push(DiagEntry::empty("invalid token".to_string()));
-                self.parse_stmt()?
+                self.parse_stmt()
             }
         };
-        Ok(res)
+
+        match res {
+            Err(err) => {
+                self.diagnostics.try_push(err);
+                self.stream.skip_until(|t| t.kind == TokenKind::Eol);
+                self.parse_stmt()
+            }
+            x => x,
+        }
     }
 
     fn parse_let_binding(&mut self) -> Result<Node, ParseErr> {
@@ -251,6 +225,51 @@ impl<'a> Parser<'a> {
                     },
                 }),
                 expr: Box::new(expr),
+            },
+        })
+    }
+
+    fn parse_type_decl(&mut self) -> Result<Node, ParseErr> {
+        // TODO: type declr, and properties can have attributes
+        // type RecordType = {
+        //    @attr ident Type,
+        //    @attr ident2 Type2,
+        // }
+
+        // take identifier
+        let type_kw = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
+
+        let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
+
+        if ident.chars().next().is_some_and(char::is_lowercase) {
+            self.diagnostics
+                .push_message(Error, "Type Identifiers need to be Capitalized", span);
+        }
+
+        // take the '='
+        let _ = self.stream.take_expecting(expected_token::assign)?;
+
+        // take the 'struct | interface | enum'
+        let token = self
+            .stream
+            .take_expecting(expected_token::type_classification)?;
+
+        let type_class_body = match token.kind {
+            TokenKind::OpenCurl => self.parse_struct()?,
+            TokenKind::OpenBracket => self.parse_enum()?,
+            TokenKind::OpenParen => self.parse_tuple()?,
+            // TokenKind::Interface => self.parse_interface()?,
+            _ => unreachable!(),
+        };
+
+        //take the  '{'
+
+        Ok(Node {
+            span: Span::default(),
+            kind: NodeKind::TypeDecl {
+                type_id: self.id_generator.next_type(),
+                ident: Identifier::new(ident),
+                body: Box::new(type_class_body),
             },
         })
     }

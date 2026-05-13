@@ -1,0 +1,6 @@
+---
+source: src/test_utils.rs
+expression: v.snapshot()
+---
+TypeDecl
+	RecordFieldDecl

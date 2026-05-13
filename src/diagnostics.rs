@@ -110,11 +110,17 @@ impl Diagnostics {
     pub fn push(&mut self, entry: DiagEntry) {
         self.list.push(entry)
     }
-    pub fn push_message(&mut self, severity: DiagSeverity, message: &str) {
+
+    pub fn try_push(&mut self, entry: impl TryInto<DiagEntry>) {
+        if let Ok(entry) = entry.try_into() {
+            self.list.push(entry);
+        }
+    }
+    pub fn push_message(&mut self, severity: DiagSeverity, message: &str, span: Span) {
         let m = DiagEntry::new(
             0,
             severity,
-            Span::from(((0, 0).into(), (0, 0).into())),
+            span,
             String::from(message),
         );
         self.list.push(m);

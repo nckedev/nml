@@ -1,4 +1,4 @@
-use std::{fmt::Display, marker::PhantomData};
+use std::{cell::RefCell, fmt::Display, marker::PhantomData, rc::Weak};
 
 use crate::{identifier::Identifier, parser::Operator, scope::TypeId, span::Span};
 
@@ -76,6 +76,7 @@ impl<T> Display for Ast<T> {
 #[derive(Debug)]
 pub struct Node {
     pub span: Span,
+    // pub parent: Option<RefCell<Weak<Node>>>,
     pub kind: NodeKind,
 }
 

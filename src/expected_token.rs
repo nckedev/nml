@@ -40,6 +40,7 @@ pub fn type_decl_end(t: Token) -> Result<Token, ParseErr> {
     }
 }
 
+/// any of { ( [
 pub fn type_classification(t: Token) -> Result<Token, ParseErr> {
     match t.kind {
         TokenKind::OpenCurl | TokenKind::OpenBracket | TokenKind::OpenParen => Ok(t),
