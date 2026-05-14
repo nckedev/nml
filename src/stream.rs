@@ -37,19 +37,19 @@ where
     }
 
     pub fn peek_expect(&self, pred: fn(&T) -> bool) -> bool {
-        if let Some(v) = self.buffer.front() {
-            if pred(v) {
-                return true;
-            }
+        if let Some(v) = self.buffer.front()
+            && pred(v)
+        {
+            return true;
         }
         false
     }
 
     pub fn peek_n_expect(&self, steps: usize, pred: fn(&T) -> bool) -> bool {
-        if let Some(v) = self.buffer.get(steps) {
-            if pred(v) {
-                return true;
-            }
+        if let Some(v) = self.buffer.get(steps)
+            && pred(v)
+        {
+            return true;
         }
         false
     }
@@ -106,18 +106,18 @@ where
     where
         T: PartialEq,
     {
-        if let Some(v) = self.buffer.front() {
-            if *v == pred {
-                return self.take();
-            }
+        if let Some(v) = self.buffer.front()
+            && *v == pred
+        {
+            return self.take();
         }
         None
     }
     pub fn take_if_fn(&mut self, pred: fn(&T) -> bool) -> Option<T> {
-        if let Some(v) = self.buffer.front() {
-            if pred(v) {
-                return self.take();
-            }
+        if let Some(v) = self.buffer.front()
+            && pred(v)
+        {
+            return self.take();
         }
         None
     }
@@ -200,7 +200,7 @@ where
     }
 
     pub fn skip_until(&mut self, pred: fn(&T) -> bool) {
-        while let Some(_) = self.take_if_fn(pred) {}
+        while self.take_if_fn(pred).is_some() {}
     }
 }
 
