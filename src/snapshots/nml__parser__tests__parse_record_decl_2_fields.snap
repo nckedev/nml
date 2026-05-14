@@ -1,0 +1,8 @@
+---
+source: src/parser.rs
+expression: node.nodes.snapshot()
+---
+TypeDecl Test
+  RecordDecl
+    RecordFieldDecl a Int
+    RecordFieldDecl b Int

@@ -32,7 +32,7 @@ where
 
 impl SnapshotStr for Node {
     fn collect(&self, depth: usize, buf: &mut String) {
-        buf.push_str(&"\t".repeat(depth));
+        buf.push_str(&"  ".repeat(depth));
         match &self.kind {
             NodeKind::Root { .. } => buf.push_str("Root"),
             NodeKind::VariableAccess => buf.push_str("VariableAccess"),
@@ -43,10 +43,20 @@ impl SnapshotStr for Node {
                 ident,
                 body,
             } => {
-                buf.push_str("TypeDecl\n");
+                buf.push_str(&format!("TypeDecl {}\n", ident.value));
                 body.collect(depth + 1, buf)
             }
-            NodeKind::RecordFieldDecl { name_ident } => buf.push_str("RecordFieldDecl\n"),
+            NodeKind::RecordDecl { is_open, fields } => {
+                buf.push_str("RecordDecl\n");
+                fields.collect(depth + 1, buf);
+            }
+            NodeKind::RecordFieldDecl {
+                name_ident,
+                type_ident,
+            } => buf.push_str(&format!(
+                "RecordFieldDecl {} {}\n",
+                name_ident.value, type_ident.value
+            )),
             NodeKind::BlockStmt => buf.push_str("BlockStmt\n"),
             NodeKind::UseStmt {} => buf.push_str("UseStmt\n"),
             NodeKind::ModuleDeclr { ident, body } => buf.push_str("ModuleDeclr\n"),
@@ -80,6 +90,9 @@ impl SnapshotStr for Node {
             NodeKind::EOF => buf.push_str("EOF\n"),
             NodeKind::Invalid => buf.push_str("Invalid\n"),
             NodeKind::Empty => buf.push_str("Empty\n"),
+            NodeKind::EnumDecl { is_open, variants } => todo!(),
+            NodeKind::EnumVariantDecl { name } => todo!(),
+            NodeKind::TupleDecl { fields } => todo!(),
         };
     }
 }

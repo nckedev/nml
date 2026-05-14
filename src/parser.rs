@@ -26,7 +26,17 @@ pub enum ParseErr {
     UnexpectedEndOfFile,
     UnexpectedToken { token: Token, expected: String },
     NotSupported,
+    Custom(&'static str),
     NotYetImplemented,
+}
+
+impl ParseErr {
+    pub fn unexpected_token(actual: Token, expected: impl Into<String>) -> Self {
+        Self::UnexpectedToken {
+            token: actual,
+            expected: expected.into(),
+        }
+    }
 }
 
 pub trait MakeDiagnostics<T> {
@@ -75,8 +85,18 @@ impl<'a> Parser<'a> {
 
         let mut ast = Ast::new();
 
-        while let Ok(stmt) = self.parse_stmt() {
-            ast.add(stmt);
+        // while let Ok(stmt) = self.parse_stmt() {
+        //     ast.add(stmt);
+        // }
+
+        loop {
+            match self.parse_stmt() {
+                Ok(v) => ast.add(v),
+                Err(e) => {
+                    eprintln!("{:?}", e);
+                    break;
+                }
+            }
         }
 
         Ok(ast)
@@ -225,12 +245,16 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_decl(&mut self) -> Result<Node, ParseErr> {
+        // type Test = { field1 Int, field2 Str }
+        // -----------------------------------------  <- TypeDecl
+        //             _____________________________  <- RecordDecl
+        //               ___________  ____________    <- RecordFieldDecl
+        //
         // TODO: type declr, and properties can have attributes
         // type RecordType = {
         //    @attr ident Type,
         //    @attr ident2 Type2,
         // }
-
         // take identifier
         let _type_kw = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
 
@@ -242,20 +266,20 @@ impl<'a> Parser<'a> {
         }
 
         // take the '='
-        let _ = self.stream.take_expecting(expected_token::assign)?;
+        self.stream.take_expecting(expected_token::assign)?;
 
         // take the 'struct | interface | enum'
-        let token = self
-            .stream
-            .take_expecting(expected_token::type_classification)?;
-
-        let type_class_body = match token.kind {
-            TokenKind::OpenCurl => self.parse_struct()?,
-            TokenKind::OpenBracket => self.parse_enum()?,
-            TokenKind::OpenParen => self.parse_tuple()?,
-            // TokenKind::Interface => self.parse_interface()?,
-            _ => unreachable!(),
-        };
+        let body = self.parse_type_decl_body()?;
+        // let Some(tok) = self.stream.peek() else {
+        //     ParseErr::UnexpectedEndOfFile?
+        // };
+        // let type_class_body = match tok.kind {
+        //     TokenKind::OpenCurl => self.parse_record()?,
+        //     TokenKind::OpenBracket => self.parse_enum()?,
+        //     TokenKind::OpenParen => self.parse_tuple()?,
+        //     // TokenKind::Interface => self.parse_interface()?,
+        //     _ => unreachable!(),
+        // };
 
         //take the  '{'
 
@@ -264,7 +288,7 @@ impl<'a> Parser<'a> {
             kind: NodeKind::TypeDecl {
                 type_id: self.id_generator.next_type(),
                 ident: Identifier::new(ident),
-                body: Box::new(type_class_body),
+                body: Box::new(body),
             },
         })
     }
@@ -297,41 +321,87 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_decl_body(&mut self) -> Result<Node, ParseErr> {
-        let token = self
+        // parse the { ... } including the brackets/paren/curlies
+        eprintln!("type decl body");
+        let open_token = self
             .stream
             .take_expecting(expected_token::type_classification)?;
+        eprintln!("type decl body");
 
-        let body = match token.kind {
-            TokenKind::OpenCurl => self.parse_struct()?,
+        let body = match open_token.kind {
+            TokenKind::OpenCurl => {
+                let fields = self.parse_record_fields()?;
+                let close_token = self
+                    .stream
+                    .take_expecting(expected_token::opposit_of(&open_token))?;
+
+                Node {
+                    span: Span::merge(open_token.span, close_token.span),
+                    kind: NodeKind::RecordDecl {
+                        is_open: false,
+                        fields,
+                    },
+                }
+            }
             TokenKind::OpenBracket => self.parse_enum()?,
             TokenKind::OpenParen => self.parse_tuple()?,
             // TokenKind::Interface => self.parse_interface(scope)?,
             _ => unreachable!(),
         };
-        Ok(Node {
-            span: Span::merge(token.span, body.span),
-            kind: NodeKind::Invalid,
-        })
+
+        Ok(body)
     }
 
-    fn parse_struct(&mut self) -> Result<Node, ParseErr> {
-        //pasrse the
+    fn parse_record_fields(&mut self) -> Result<Vec<Node>, ParseErr> {
         //{
-        //  a type,
-        //  b type
+        //  a type, <- parse this
+        //  b type  <- and this
         //}
-        //part of a type declr
-        let (ident, span) = self.stream.take_expecting(expected_token::ident)?;
-        let (_type_ident, _type_span) = self.stream.take_expecting(expected_token::ident)?;
-        let end = self.stream.take_expecting(expected_token::type_decl_end)?;
 
-        Ok(Node {
-            span: Span::merge(span, end.span),
+        // the name
+        let (name_ident, name_span) = self.stream.take_expecting(expected_token::ident)?;
+        // the type name
+        // TODO: This could be a anontype or open enum
+        let (type_ident, type_span) = self.stream.take_expecting(expected_token::ident)?;
+
+        let mut buf = vec![];
+
+        buf.push(Node {
+            span: Span::merge(name_span, type_span),
             kind: NodeKind::RecordFieldDecl {
-                name_ident: Identifier { value: ident },
+                name_ident: Identifier { value: name_ident },
+                type_ident: Identifier { value: type_ident },
             },
-        })
+        });
+
+        // the , if it exists
+        // if there is a ',' it might be more fields, recurse for the next
+        if self
+            .stream
+            .peek_expecting(expected_token::exact(&TokenKind::Separator))
+            .is_ok()
+        {
+            self.stream.take();
+            match self.parse_record_fields() {
+                Ok(mut x) => buf.append(&mut x),
+                Err(e) => {
+                    dbg!(e);
+                }
+            }
+        }
+        // self.stream.take();
+
+        Ok(buf)
+
+        // Ok(vec![Node {
+        //     span: Span::merge(name_span, type_span),
+        //     kind: NodeKind::RecordFieldDecl {
+        //         name_ident: Identifier { value: name_ident },
+        //         type_ident: Identifier { value: type_ident },
+        //     },
+        // }])
     }
+
     fn parse_interface(&mut self) -> Result<Node, ParseErr> {
         todo!()
     }
@@ -421,7 +491,57 @@ mod tests {
         let diag = &mut Diagnostics::new();
         let mut parser = Parser::new(tokens, id, diag);
         let node = parser.parse()?;
-        test_utils::assert_snapshot(node.nodes);
+        insta::assert_snapshot!(node.nodes.snapshot());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_record_decl_2_fields() -> Result<(), ParseErr> {
+        let tokens = [
+            Token::new(TokenKind::Type, Span::default()),
+            Token::new(TokenKind::Identifier("Test".to_string()), Span::default()),
+            Token::new(TokenKind::Assign, Span::default()),
+            Token::new(TokenKind::OpenCurl, Span::default()),
+            Token::new(TokenKind::Identifier("a".to_string()), Span::default()),
+            Token::new(TokenKind::Identifier("Int".to_string()), Span::default()),
+            Token::new(TokenKind::Separator, Span::default()),
+            Token::new(TokenKind::Identifier("b".to_string()), Span::default()),
+            Token::new(TokenKind::Identifier("Int".to_string()), Span::default()),
+            Token::new(TokenKind::CloseCurl, Span::default()),
+        ]
+        .to_vec();
+        let id = &mut IdGenerator::new(2);
+        let diag = &mut Diagnostics::new();
+        let mut parser = Parser::new(tokens, id, diag);
+        let node = parser.parse()?;
+        insta::assert_snapshot!(node.nodes.snapshot());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_record_decl_3_fields_trailing_sep() -> Result<(), ParseErr> {
+        let tokens = [
+            Token::new(TokenKind::Type, Span::default()),
+            Token::new(TokenKind::Identifier("Test".to_string()), Span::default()),
+            Token::new(TokenKind::Assign, Span::default()),
+            Token::new(TokenKind::OpenCurl, Span::default()),
+            Token::new(TokenKind::Identifier("a".to_string()), Span::default()),
+            Token::new(TokenKind::Identifier("Int".to_string()), Span::default()),
+            Token::new(TokenKind::Separator, Span::default()),
+            Token::new(TokenKind::Identifier("b".to_string()), Span::default()),
+            Token::new(TokenKind::Identifier("Int".to_string()), Span::default()),
+            Token::new(TokenKind::Separator, Span::default()),
+            Token::new(TokenKind::Identifier("c".to_string()), Span::default()),
+            Token::new(TokenKind::Identifier("Str".to_string()), Span::default()),
+            Token::new(TokenKind::Separator, Span::default()),
+            Token::new(TokenKind::CloseCurl, Span::default()),
+        ]
+        .to_vec();
+        let id = &mut IdGenerator::new(2);
+        let diag = &mut Diagnostics::new();
+        let mut parser = Parser::new(tokens, id, diag);
+        let node = parser.parse()?;
+        insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
     }
 

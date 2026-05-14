@@ -1,3 +1,5 @@
+use std::mem::discriminant;
+
 use crate::parser::ParseErr;
 use crate::span::Span;
 use crate::token::Token;
@@ -53,6 +55,49 @@ pub fn type_classification(t: Token) -> Result<Token, ParseErr> {
 
 pub fn any(t: Token) -> Result<Token, ParseErr> {
     Ok(t)
+}
+
+pub fn opposit_of<'a>(source: &'a Token) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
+    |tk| match (&source.kind, &tk.kind) {
+        (TokenKind::OpenCurl, TokenKind::CloseCurl) => Ok(tk),
+        (TokenKind::OpenCurl, _) => Err(ParseErr::unexpected_token(tk, "}")),
+        (TokenKind::OpenParen, TokenKind::CloseParen) => Ok(tk),
+        (TokenKind::OpenParen, _) => Err(ParseErr::unexpected_token(tk, ")")),
+        (TokenKind::OpenBracket, TokenKind::CloseBracket) => Ok(tk),
+        (TokenKind::OpenBracket, _) => Err(ParseErr::unexpected_token(tk, "]")),
+        _ => unreachable!(),
+    }
+}
+
+pub fn any_of<'a>(source: &'a [TokenKind]) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
+    move |target| {
+        for t in source {
+            if discriminant(&target.kind) == discriminant(t) {
+                return Ok(target);
+            }
+        }
+        let buf = String::with_capacity(10);
+        let str = source.iter().fold(buf, |mut acc, t| {
+            acc.push_str(t.to_string().as_str());
+            acc.push_str(", ");
+            acc
+        });
+
+        Err(ParseErr::unexpected_token(target, str))
+    }
+}
+
+pub fn sequence_of<'a>(source: &'a [TokenKind]) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
+    |_| todo!()
+}
+
+pub fn exact<'a>(source: &'a TokenKind) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
+    |token| {
+        if discriminant(&token.kind) == discriminant(source) {
+            return Ok(token);
+        }
+        Err(ParseErr::unexpected_token(token, source.to_string()))
+    }
 }
 
 pub fn token_kind(t: Token, pred: &impl Fn(&TokenKind) -> bool) -> Result<Token, ParseErr> {

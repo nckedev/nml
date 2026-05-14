@@ -17,6 +17,7 @@ pub struct Lexer {
 #[derive(Debug)]
 pub struct LexerErr {
     message: String,
+    
 }
 
 impl Lexer {

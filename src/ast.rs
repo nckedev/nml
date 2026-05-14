@@ -80,6 +80,15 @@ pub struct Node {
     pub kind: NodeKind,
 }
 
+impl Node {
+    pub fn invalid() -> Self {
+        Self {
+            span: Span::default(),
+            kind: NodeKind::Invalid,
+        }
+    }
+}
+
 // !!! expression is something that evaluates to a value
 #[derive(Debug)]
 pub enum NodeKind {
@@ -96,9 +105,23 @@ pub enum NodeKind {
         ident: Identifier,
         body: Box<Node>,
     },
+    RecordDecl {
+        is_open: bool,
+        fields: Vec<Node>,
+    },
     RecordFieldDecl {
         name_ident: Identifier,
-        // type_ident: Identifier,
+        type_ident: Identifier,
+    },
+    EnumDecl {
+        is_open: bool,
+        variants: Vec<Node>,
+    },
+    EnumVariantDecl {
+        name: Identifier,
+    },
+    TupleDecl {
+        fields: Vec<Node>,
     },
     BlockStmt,
     UseStmt {},

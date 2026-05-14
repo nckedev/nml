@@ -119,7 +119,7 @@ where
         None
     }
 
-    pub fn take_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E>
+    pub fn take_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
     where
         E: TryInto<DiagEntry>,
         E: EndOfStream,
@@ -131,7 +131,7 @@ where
         pred(v)
     }
 
-    pub fn peek_expecting<U, E>(&mut self, pred: fn(T) -> Result<U, E>) -> Result<U, E>
+    pub fn peek_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
     where
         E: TryInto<DiagEntry>,
         E: EndOfStream,

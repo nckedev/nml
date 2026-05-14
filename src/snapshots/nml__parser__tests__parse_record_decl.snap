@@ -2,6 +2,6 @@
 source: src/parser.rs
 expression: node.nodes.snapshot()
 ---
-LetStmt
-  Ident test
-  ConstExpr 1
+TypeDecl Test
+  RecordDecl
+    RecordFieldDecl a Int

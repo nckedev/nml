@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub(crate) struct Identifier {
     //TODO: Fully qualified name
@@ -19,4 +18,9 @@ impl std::fmt::Display for Identifier {
 
 trait Indentifiable {
     fn identifier(&self) -> Identifier;
+}
+
+pub enum IdentifierKind {
+    Name(String),
+    Type(String),
 }

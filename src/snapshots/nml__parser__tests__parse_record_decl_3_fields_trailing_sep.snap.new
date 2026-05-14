@@ -1,7 +1,6 @@
 ---
 source: src/parser.rs
+assertion_line: 545
 expression: node.nodes.snapshot()
 ---
-LetStmt
-  Ident test
-  ConstExpr 1
+
