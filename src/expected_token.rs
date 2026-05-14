@@ -87,7 +87,9 @@ pub fn any_of<'a>(source: &'a [TokenKind]) -> impl Fn(Token) -> Result<Token, Pa
     }
 }
 
-pub fn sequence_of<'a>(source: &'a [TokenKind]) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
+pub fn sequence_of<'a>(
+    expected: &'a [TokenKind],
+) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
     |_| todo!()
 }
 

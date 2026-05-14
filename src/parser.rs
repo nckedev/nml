@@ -92,9 +92,10 @@ impl<'a> Parser<'a> {
         loop {
             match self.parse_stmt() {
                 Ok(v) => ast.add(v),
+                Err(ParseErr::UnexpectedEndOfFile) => break,
                 Err(e) => {
                     eprintln!("{:?}", e);
-                    break;
+                    self.stream.take();
                 }
             }
         }
@@ -281,8 +282,6 @@ impl<'a> Parser<'a> {
         //     _ => unreachable!(),
         // };
 
-        //take the  '{'
-
         Ok(Node {
             span: Span::default(),
             kind: NodeKind::TypeDecl {
@@ -330,16 +329,28 @@ impl<'a> Parser<'a> {
 
         let body = match open_token.kind {
             TokenKind::OpenCurl => {
-                let fields = self.parse_record_fields()?;
+                let mut buf = vec![];
+                while let Some(Token {
+                    kind: TokenKind::Identifier(..),
+                    ..
+                }) = self.stream.peek()
+                    && let Ok(field) = self.parse_record_field()
+                {
+                    buf.push(field);
+                }
+                eprintln!("buf: {buf:?}");
+                // let fields = self.parse_record_fields()?;
+                self.stream.peek_print();
                 let close_token = self
                     .stream
                     .take_expecting(expected_token::opposit_of(&open_token))?;
+                eprintln!("close {:?}", close_token);
 
                 Node {
-                    span: Span::merge(open_token.span, close_token.span),
+                    span: Span::merge(open_token.span, Span::default()),
                     kind: NodeKind::RecordDecl {
                         is_open: false,
-                        fields,
+                        fields: buf,
                     },
                 }
             }
@@ -348,58 +359,38 @@ impl<'a> Parser<'a> {
             // TokenKind::Interface => self.parse_interface(scope)?,
             _ => unreachable!(),
         };
+        eprintln!("{:?}", body);
 
         Ok(body)
     }
 
-    fn parse_record_fields(&mut self) -> Result<Vec<Node>, ParseErr> {
+    fn parse_record_field(&mut self) -> Result<Node, ParseErr> {
         //{
         //  a type, <- parse this
         //  b type  <- and this
         //}
-
+        // self.stream.peek_expecting(expected_token::ident)?;
         // the name
         let (name_ident, name_span) = self.stream.take_expecting(expected_token::ident)?;
         // the type name
         // TODO: This could be a anontype or open enum
         let (type_ident, type_span) = self.stream.take_expecting(expected_token::ident)?;
 
-        let mut buf = vec![];
+        if let Some(Token {
+            kind: TokenKind::Separator,
+            ..
+        }) = self.stream.peek()
+        {
+            self.stream.take();
+        }
 
-        buf.push(Node {
+        Ok(Node {
             span: Span::merge(name_span, type_span),
             kind: NodeKind::RecordFieldDecl {
                 name_ident: Identifier { value: name_ident },
                 type_ident: Identifier { value: type_ident },
             },
-        });
-
-        // the , if it exists
-        // if there is a ',' it might be more fields, recurse for the next
-        if self
-            .stream
-            .peek_expecting(expected_token::exact(&TokenKind::Separator))
-            .is_ok()
-        {
-            self.stream.take();
-            match self.parse_record_fields() {
-                Ok(mut x) => buf.append(&mut x),
-                Err(e) => {
-                    dbg!(e);
-                }
-            }
-        }
-        // self.stream.take();
-
-        Ok(buf)
-
-        // Ok(vec![Node {
-        //     span: Span::merge(name_span, type_span),
-        //     kind: NodeKind::RecordFieldDecl {
-        //         name_ident: Identifier { value: name_ident },
-        //         type_ident: Identifier { value: type_ident },
-        //     },
-        // }])
+        })
     }
 
     fn parse_interface(&mut self) -> Result<Node, ParseErr> {

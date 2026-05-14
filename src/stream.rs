@@ -23,6 +23,9 @@ where
     T: std::fmt::Debug,
     T: LineSeparator<Item = T>,
 {
+    pub fn peek_print(&self) {
+        eprintln!("PEEK STREAM: {:?}", self.buffer.front());
+    }
     /// Returns the next value without moving forward forward in the stream
     pub fn peek(&self) -> Option<&T> {
         self.buffer.front()
@@ -119,6 +122,9 @@ where
         None
     }
 
+    /// Takes an item of the stream and returns it if it matches the expecations.
+    /// Returns an error if the the stream is empty or the element did not meet the expectation.
+    /// There is ALWAYS one element taken of the stream regardless of success or not.
     pub fn take_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
     where
         E: TryInto<DiagEntry>,
@@ -131,6 +137,9 @@ where
         pred(v)
     }
 
+    /// Peeks the top item of the stream and returns a copy it if it matches the expecations.
+    /// Returns an error if the the stream is empty or the element did not meet the expectation.
+    /// There is NEVER any element taken of the stream regardless of success or not.
     pub fn peek_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
     where
         E: TryInto<DiagEntry>,
