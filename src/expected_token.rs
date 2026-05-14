@@ -93,7 +93,7 @@ pub fn sequence_of<'a>(
     |_| todo!()
 }
 
-pub fn exact<'a>(source: &'a TokenKind) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
+pub fn exact_kind<'a>(source: &'a TokenKind) -> impl Fn(Token) -> Result<Token, ParseErr> + 'a {
     |token| {
         if discriminant(&token.kind) == discriminant(source) {
             return Ok(token);

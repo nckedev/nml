@@ -320,46 +320,37 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_decl_body(&mut self) -> Result<Node, ParseErr> {
-        // parse the { ... } including the brackets/paren/curlies
-        eprintln!("type decl body");
+        // parse the { ... } including the brackets/paren/curlies or if it is just an alias like
+        // "type MyType = Int" then the Int part should be parsed
         let open_token = self
             .stream
             .take_expecting(expected_token::type_classification)?;
-        eprintln!("type decl body");
 
-        let body = match open_token.kind {
+        let mut buf = vec![];
+
+        match open_token.kind {
             TokenKind::OpenCurl => {
-                let mut buf = vec![];
-                while let Some(Token {
-                    kind: TokenKind::Identifier(..),
-                    ..
-                }) = self.stream.peek()
-                    && let Ok(field) = self.parse_record_field()
-                {
+                while let Ok(field) = self.parse_record_field() {
                     buf.push(field);
                 }
-                eprintln!("buf: {buf:?}");
-                // let fields = self.parse_record_fields()?;
-                self.stream.peek_print();
-                let close_token = self
-                    .stream
-                    .take_expecting(expected_token::opposit_of(&open_token))?;
-                eprintln!("close {:?}", close_token);
-
-                Node {
-                    span: Span::merge(open_token.span, Span::default()),
-                    kind: NodeKind::RecordDecl {
-                        is_open: false,
-                        fields: buf,
-                    },
-                }
             }
-            TokenKind::OpenBracket => self.parse_enum()?,
-            TokenKind::OpenParen => self.parse_tuple()?,
+            // TokenKind::OpenBracket => self.parse_enum()?,
+            // TokenKind::OpenParen => self.parse_tuple()?,
             // TokenKind::Interface => self.parse_interface(scope)?,
             _ => unreachable!(),
         };
-        eprintln!("{:?}", body);
+
+        let close_token = self
+            .stream
+            .take_expecting(expected_token::opposit_of(&open_token))?;
+
+        let body = Node {
+            span: Span::merge(open_token.span, close_token.span),
+            kind: NodeKind::RecordDecl {
+                is_open: false,
+                fields: buf,
+            },
+        };
 
         Ok(body)
     }
@@ -371,18 +362,14 @@ impl<'a> Parser<'a> {
         //}
         // self.stream.peek_expecting(expected_token::ident)?;
         // the name
-        let (name_ident, name_span) = self.stream.take_expecting(expected_token::ident)?;
+        let (name_ident, name_span) = self.stream.take_if_expecting(expected_token::ident)?;
         // the type name
         // TODO: This could be a anontype or open enum
-        let (type_ident, type_span) = self.stream.take_expecting(expected_token::ident)?;
+        let (type_ident, type_span) = self.stream.take_if_expecting(expected_token::ident)?;
 
-        if let Some(Token {
-            kind: TokenKind::Separator,
-            ..
-        }) = self.stream.peek()
-        {
-            self.stream.take();
-        }
+        let _ = self
+            .stream
+            .take_if_expecting(expected_token::exact_kind(&TokenKind::Separator));
 
         Ok(Node {
             span: Span::merge(name_span, type_span),

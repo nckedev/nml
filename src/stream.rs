@@ -137,6 +137,17 @@ where
         pred(v)
     }
 
+    pub fn take_if_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
+    where
+        E: TryInto<DiagEntry>,
+        E: EndOfStream,
+    {
+        match self.peek_expecting(&pred) {
+            Ok(_) => pred(self.take().unwrap()),
+            e => e,
+        }
+    }
+
     /// Peeks the top item of the stream and returns a copy it if it matches the expecations.
     /// Returns an error if the the stream is empty or the element did not meet the expectation.
     /// There is NEVER any element taken of the stream regardless of success or not.
