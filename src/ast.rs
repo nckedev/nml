@@ -123,6 +123,9 @@ pub enum NodeKind {
     TupleDecl {
         fields: Vec<Node>,
     },
+    TupleMemberDecl {
+        name: Identifier,
+    },
     BlockStmt,
     UseStmt {},
     ModuleDeclr {

@@ -57,6 +57,18 @@ impl SnapshotStr for Node {
                 "RecordFieldDecl {} {}\n",
                 name_ident.value, type_ident.value
             )),
+            NodeKind::EnumDecl { is_open, variants } => {
+                buf.push_str("EnumDecl\n");
+                variants.collect(depth + 1, buf);
+            }
+            NodeKind::EnumVariantDecl { name } => {
+                buf.push_str(&format!("EnumVariantDecl {}\n", name.value))
+            }
+            NodeKind::TupleDecl { fields } => {
+                buf.push_str("TupleDecl\n");
+                fields.collect(depth + 1, buf);
+            }
+            NodeKind::TupleMemberDecl { name } => buf.push_str(&name.value),
             NodeKind::BlockStmt => buf.push_str("BlockStmt\n"),
             NodeKind::UseStmt {} => buf.push_str("UseStmt\n"),
             NodeKind::ModuleDeclr { ident, body } => buf.push_str("ModuleDeclr\n"),
@@ -90,14 +102,6 @@ impl SnapshotStr for Node {
             NodeKind::EOF => buf.push_str("EOF\n"),
             NodeKind::Invalid => buf.push_str("Invalid\n"),
             NodeKind::Empty => buf.push_str("Empty\n"),
-            NodeKind::EnumDecl { is_open, variants } => {
-                buf.push_str("EnumDecl\n");
-                variants.collect(depth + 1, buf);
-            }
-            NodeKind::EnumVariantDecl { name } => {
-                buf.push_str(&format!("EnumVariantDecl {}\n", name.value))
-            }
-            NodeKind::TupleDecl { fields } => todo!(),
         };
     }
 }
