@@ -328,13 +328,25 @@ impl<'a> Parser<'a> {
 
         let mut buf = vec![];
 
-        match open_token.kind {
+        let kind = match open_token.kind {
             TokenKind::OpenCurl => {
                 while let Ok(field) = self.parse_record_field() {
                     buf.push(field);
                 }
+                NodeKind::RecordDecl {
+                    is_open: false,
+                    fields: buf,
+                }
             }
-            // TokenKind::OpenBracket => self.parse_enum()?,
+            TokenKind::OpenBracket => {
+                while let Ok(variant) = self.parse_enum_variant() {
+                    buf.push(variant);
+                }
+                NodeKind::EnumDecl {
+                    is_open: false,
+                    variants: buf,
+                }
+            }
             // TokenKind::OpenParen => self.parse_tuple()?,
             // TokenKind::Interface => self.parse_interface(scope)?,
             _ => unreachable!(),
@@ -346,10 +358,7 @@ impl<'a> Parser<'a> {
 
         let body = Node {
             span: Span::merge(open_token.span, close_token.span),
-            kind: NodeKind::RecordDecl {
-                is_open: false,
-                fields: buf,
-            },
+            kind,
         };
 
         Ok(body)
@@ -376,6 +385,21 @@ impl<'a> Parser<'a> {
             kind: NodeKind::RecordFieldDecl {
                 name_ident: Identifier { value: name_ident },
                 type_ident: Identifier { value: type_ident },
+            },
+        })
+    }
+
+    fn parse_enum_variant(&mut self) -> Result<Node, ParseErr> {
+        // [A, B, C]
+        let (ident, span) = self.stream.take_if_expecting(expected_token::ident)?;
+        let _ = self
+            .stream
+            .take_if_expecting(expected_token::exact_kind(&TokenKind::Separator));
+
+        Ok(Node {
+            span,
+            kind: NodeKind::EnumVariantDecl {
+                name: Identifier { value: ident },
             },
         })
     }
@@ -465,6 +489,7 @@ mod tests {
             Token::new(TokenKind::CloseCurl, Span::default()),
         ]
         .to_vec();
+
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
         let mut parser = Parser::new(tokens, id, diag);
@@ -488,6 +513,7 @@ mod tests {
             Token::new(TokenKind::CloseCurl, Span::default()),
         ]
         .to_vec();
+
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
         let mut parser = Parser::new(tokens, id, diag);
@@ -513,6 +539,46 @@ mod tests {
             Token::new(TokenKind::Identifier("Str".to_string()), Span::default()),
             Token::new(TokenKind::Separator, Span::default()),
             Token::new(TokenKind::CloseCurl, Span::default()),
+        ]
+        .to_vec();
+        let id = &mut IdGenerator::new(2);
+        let diag = &mut Diagnostics::new();
+        let mut parser = Parser::new(tokens, id, diag);
+        let node = parser.parse()?;
+        insta::assert_snapshot!(node.nodes.snapshot());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_enum_variant_decl() -> Result<(), ParseErr> {
+        let tokens = [
+            Token::new(TokenKind::Type, Span::default()),
+            Token::new(TokenKind::Identifier("Test".to_string()), Span::default()),
+            Token::new(TokenKind::Assign, Span::default()),
+            Token::new(TokenKind::OpenBracket, Span::default()),
+            Token::new(TokenKind::Identifier("A".to_string()), Span::default()),
+            Token::new(TokenKind::CloseBracket, Span::default()),
+        ]
+        .to_vec();
+        let id = &mut IdGenerator::new(2);
+        let diag = &mut Diagnostics::new();
+        let mut parser = Parser::new(tokens, id, diag);
+        let node = parser.parse()?;
+        insta::assert_snapshot!(node.nodes.snapshot());
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_enum_variant_2_decl() -> Result<(), ParseErr> {
+        let tokens = [
+            Token::new(TokenKind::Type, Span::default()),
+            Token::new(TokenKind::Identifier("Test".to_string()), Span::default()),
+            Token::new(TokenKind::Assign, Span::default()),
+            Token::new(TokenKind::OpenBracket, Span::default()),
+            Token::new(TokenKind::Identifier("A".to_string()), Span::default()),
+            Token::new(TokenKind::Separator, Span::default()),
+            Token::new(TokenKind::Identifier("B".to_string()), Span::default()),
+            Token::new(TokenKind::CloseBracket, Span::default()),
         ]
         .to_vec();
         let id = &mut IdGenerator::new(2);

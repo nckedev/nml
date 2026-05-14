@@ -1,0 +1,7 @@
+---
+source: src/parser.rs
+expression: node.nodes.snapshot()
+---
+TypeDecl Test
+  EnumDecl
+    EnumVariantDecl A

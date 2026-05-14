@@ -90,8 +90,13 @@ impl SnapshotStr for Node {
             NodeKind::EOF => buf.push_str("EOF\n"),
             NodeKind::Invalid => buf.push_str("Invalid\n"),
             NodeKind::Empty => buf.push_str("Empty\n"),
-            NodeKind::EnumDecl { is_open, variants } => todo!(),
-            NodeKind::EnumVariantDecl { name } => todo!(),
+            NodeKind::EnumDecl { is_open, variants } => {
+                buf.push_str("EnumDecl\n");
+                variants.collect(depth + 1, buf);
+            }
+            NodeKind::EnumVariantDecl { name } => {
+                buf.push_str(&format!("EnumVariantDecl {}\n", name.value))
+            }
             NodeKind::TupleDecl { fields } => todo!(),
         };
     }
