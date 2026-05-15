@@ -1,11 +1,12 @@
 use std::fmt::Display;
 
-use crate::stream::LineSeparator;
+use crate::{span::ByteOffset, stream::LineSeparator};
 
 #[derive(Copy, Clone, Debug, Eq, Default)]
-pub(crate) struct SourceChar {
+pub struct SourceChar {
     pub ch: char,
     pub index: SourceIndex,
+    pub offset: ByteOffset,
 }
 
 impl SourceChar {
@@ -44,6 +45,7 @@ impl From<char> for SourceChar {
         SourceChar {
             ch: value,
             index: SourceIndex::default(),
+            offset: ByteOffset::default(),
         }
     }
 }
@@ -112,7 +114,81 @@ impl PartialOrd for SourceIndex {
     }
 }
 
-pub struct SourceCharIter {}
+pub trait SourCharIterTrait {
+    fn source_chars(&self) -> SourceCharIter<'_>;
+}
+
+impl SourCharIterTrait for &str {
+    fn source_chars(&self) -> SourceCharIter<'_> {
+        SourceCharIter::new(self.as_bytes())
+    }
+}
+
+pub struct SourceCharIter<'a> {
+    inner: &'a [u8],
+    row: usize,
+    col: usize,
+    curr: usize,
+    have_yield_eof: bool,
+}
+
+impl<'a> SourceCharIter<'a> {
+    pub fn new(bytes: &'a [u8]) -> Self {
+        Self {
+            inner: bytes,
+            row: 1,
+            col: 0,
+            curr: 0,
+            have_yield_eof: false,
+        }
+    }
+}
+
+impl Iterator for SourceCharIter<'_> {
+    type Item = SourceChar;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.inner.get(self.curr) {
+            Some(ch) => {
+                let r = SourceChar {
+                    ch: *ch as char,
+                    index: SourceIndex {
+                        row: self.row,
+                        col: self.col,
+                    },
+                    offset: ByteOffset {
+                        start: self.curr,
+                        end: self.curr,
+                    },
+                };
+                if *ch == b'\n' {
+                    self.row += 1;
+                    self.col = 0;
+                } else {
+                    self.col += 1;
+                }
+                self.curr += 1;
+                Some(r)
+            }
+            None if !self.have_yield_eof => {
+                // yield one extra char for end of file
+                self.have_yield_eof = true;
+                Some(SourceChar {
+                    ch: '\0',
+                    index: SourceIndex {
+                        row: self.row,
+                        col: self.col,
+                    },
+                    offset: ByteOffset {
+                        start: self.curr + 1,
+                        end: self.curr + 1,
+                    },
+                })
+            }
+            _ => None,
+        }
+    }
+}
 #[cfg(test)]
 mod source_index_tests {
 

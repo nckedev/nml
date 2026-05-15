@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use std::collections::VecDeque;
 
-use crate::{diagnostics::DiagEntry, parser::EndOfStream, source_char::SourceIndex};
+use crate::{diagnostics::DiagEntry, parser::EndOfStream};
 pub trait LineSeparator {
     type Item;
     fn is_line_separator(x: &Self::Item) -> bool;
@@ -13,7 +13,6 @@ where
 {
     // TODO: This can be an iterator?
     buffer: VecDeque<T>,
-    pub index: SourceIndex,
 }
 
 impl<T> Stream<T>
@@ -192,11 +191,11 @@ where
         let Some(y) = x else {
             return;
         };
-        if T::is_line_separator(y) {
-            self.index.step_row()
-        } else {
-            self.index.step_col()
-        }
+        // if T::is_line_separator(y) {
+        //     self.index.step_row()
+        // } else {
+        //     self.index.step_col()
+        // }
     }
 
     pub fn skip_until(&mut self, pred: fn(&T) -> bool) {
@@ -215,7 +214,6 @@ where
     fn from(value: Vec<T>) -> Self {
         Self {
             buffer: VecDeque::from(value),
-            index: SourceIndex::default(),
         }
     }
 }

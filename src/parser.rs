@@ -1,7 +1,5 @@
 use std::fmt::Display;
 
-use clap::builder::RangedI64ValueParser;
-
 use crate::{
     ast::{Ast, Node, NodeKind, Untyped},
     diagnostics::{DiagEntry, DiagSeverity::Error, Diagnostics},
@@ -254,10 +252,7 @@ impl<'a> Parser<'a> {
         //               ___________  ____________    <- RecordFieldDecl
         //
         // TODO: type declr, and properties can have attributes
-        // type RecordType = {
-        //    @attr ident Type,
-        //    @attr ident2 Type2,
-        // }
+
         // take identifier
         let _type_kw = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
 
@@ -273,16 +268,6 @@ impl<'a> Parser<'a> {
 
         // take the 'struct | interface | enum'
         let body = self.parse_type_decl_body()?;
-        // let Some(tok) = self.stream.peek() else {
-        //     ParseErr::UnexpectedEndOfFile?
-        // };
-        // let type_class_body = match tok.kind {
-        //     TokenKind::OpenCurl => self.parse_record()?,
-        //     TokenKind::OpenBracket => self.parse_enum()?,
-        //     TokenKind::OpenParen => self.parse_tuple()?,
-        //     // TokenKind::Interface => self.parse_interface()?,
-        //     _ => unreachable!(),
-        // };
 
         Ok(Node {
             span: Span::default(),
@@ -412,6 +397,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_tuple_member(&mut self) -> Result<Node, ParseErr> {
+        // (Int, Str)
         let (ident, span) = self.stream.take_if_expecting(expected_token::ident)?;
         let _ = self
             .stream

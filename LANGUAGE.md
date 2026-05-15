@@ -25,6 +25,12 @@ type EnumType = [
     Variant5 [Var1, Var1, Var2 Str]
 ]
 
+trait Display = { print : Str -> () }
+
+instance Display for Int {
+    let print = { str => @print str }
+}
+
 [1, 2, 3,] 
 $ List.map { a => a + 1 }
 $ List.fiter { a => a > 0 }

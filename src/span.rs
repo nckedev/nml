@@ -36,6 +36,22 @@ impl Display for Span {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub struct ByteOffset {
+    pub start: usize,
+    pub end: usize,
+}
+
+trait SliceFromByteOffset {
+    fn slice_from_offset(&self, offset: ByteOffset) -> Self;
+}
+
+impl SliceFromByteOffset for &str {
+    fn slice_from_offset(&self, offset: ByteOffset) -> Self {
+        &self[offset.start..=offset.end]
+    }
+}
+
 trait HasSpan {
     fn span(&self) -> Span;
 }

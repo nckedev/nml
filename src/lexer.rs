@@ -1,4 +1,5 @@
 use crate::diagnostics::Diagnostics;
+use crate::source_char::SourCharIterTrait;
 use crate::source_char::SourceChar;
 use crate::source_char::SourceIndex;
 use crate::stream::Stream;
@@ -15,56 +16,17 @@ pub struct Lexer {
 }
 
 #[derive(Debug)]
-pub struct LexerErr {
-    message: String,
-    
-}
+pub struct LexerErr {}
 
 impl Lexer {
     pub fn new(code: &str) -> Self {
-        let mut sourcechars: Vec<SourceChar> = Vec::with_capacity(code.len());
-
-        //transform chars to SourceChars to get the index of every char
-        let mut row = 1_usize;
-        let mut col = 0_usize;
-
-        // TODO: Remake this as an iterator
-        for c in code.chars() {
-            sourcechars.push(SourceChar {
-                ch: c,
-                index: SourceIndex { row, col },
-            });
-            if c == '\n' {
-                row += 1;
-                col = 0;
-            } else {
-                col += 1;
-            }
-        }
-
-        // insert a \0 at the last pos so that we can peek from the last char
-        // needed to get the index for the last token
-        // the \0 will be tokenized as EOF
-        // TODO: detta funkar men fuckar upp testen
-        if let Some(last) = sourcechars.last() {
-            sourcechars.push(SourceChar {
-                ch: 0 as char,
-                index: SourceIndex {
-                    row: last.index.row,
-                    col: last.index.col + 1,
-                },
-            });
-        }
-
-        // return the lexer with SourceChars
         Lexer {
-            stream: Stream::from(sourcechars),
+            stream: Stream::from(code.source_chars().collect::<Vec<SourceChar>>()),
         }
     }
 
     pub fn tokenize(&mut self, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>, LexerErr> {
         let mut tokens = vec![];
-        let mut start = self.stream.index;
 
         while let Some(v) = self.stream.take() {
             let token_kind = match v {
@@ -80,12 +42,13 @@ impl Lexer {
                         .map(|x| x.ch)
                         .collect::<String>();
 
-                    match_litteral(&(v.ch.to_string() + litteral.as_ref()))
+                    match_litteral(&(v.ch.to_string() + &litteral))
                 }
                 //number
                 SourceChar {
                     ch: '0'..='9',
                     index: _start,
+                    ..
                 } => self.take_number(&v),
                 //discard _
                 SourceChar { ch: '_', .. } => TokenKind::Discard,
@@ -175,18 +138,20 @@ impl Lexer {
                 _ => TokenKind::Error(Unexpected(v.ch)),
             };
 
-            let token = Token {
-                kind: token_kind,
-                span: (start, self.stream.index).into(),
+            // get the index of the next token and use that as the end
+            let end = if let Some(next) = self.stream.peek() {
+                next.index
+            } else {
+                SourceIndex::default()
             };
 
-            // println!("{:?}", token);
+            let token = Token {
+                kind: token_kind,
+                span: (v.index, end).into(),
+            };
 
-            // println!("##### {:?} {:?}", start, self.stream.index);
             tokens.push(token);
-
-            start = self.stream.index;
-        }
+        } // end of while
 
         //the last entry will not have a correct span
         let last_index = tokens.len() - 1;
@@ -272,12 +237,15 @@ impl Lexer {
                     self.stream.take();
                     has_dot = true;
                 }
-                SourceChar { ch: '_', index: _ } => {
+                SourceChar {
+                    ch: '_', index: _, ..
+                } => {
                     self.stream.take();
                 }
                 SourceChar {
                     ch: '0'..='9',
                     index: _,
+                    ..
                 } => {
                     number_buf.push(v);
                     self.stream.take();
