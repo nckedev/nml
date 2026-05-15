@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{span::Span, stream::LineSeparator};
+use crate::span::Span;
 
 use std::fmt::Display;
 
@@ -284,14 +284,6 @@ pub enum TokenTrivia {
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
-}
-
-impl LineSeparator for Token {
-    type Item = Token;
-
-    fn is_line_separator(x: &Self::Item) -> bool {
-        x.kind == TokenKind::Eol
-    }
 }
 
 impl Token {

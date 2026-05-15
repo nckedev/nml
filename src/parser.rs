@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use crate::{
     ast::{Ast, Node, NodeKind, Untyped},
@@ -13,8 +13,12 @@ use crate::{
     token::{Token, TokenKind, TokenTrivia},
 };
 
-pub struct Parser<'a> {
-    stream: Stream<Token>,
+pub struct Parser<'a, T, I>
+where
+    I: Iterator<Item = T>,
+    T: Clone + Debug + PartialEq,
+{
+    stream: Stream<T, I>,
     diagnostics: &'a mut Diagnostics,
     id_generator: &'a mut IdGenerator,
     // use_table: Vec<String>,
@@ -59,22 +63,18 @@ impl EndOfStream for ParseErr {
     }
 }
 
-impl<'a> Parser<'a> {
+impl<'a, I> Parser<'a, Token, I>
+where
+    I: Iterator<Item = Token>,
+{
     pub fn new(
-        tokens: Vec<Token>,
+        tokens: I,
         id_generator: &'a mut IdGenerator,
         diagnostics: &'a mut Diagnostics,
     ) -> Self {
         //strip whitespace
-        let t: Vec<Token> = tokens
-            .into_iter()
-            .filter(|x| {
-                x.kind != TokenKind::Trivia(TokenTrivia::Space)
-                    && x.kind != TokenKind::Trivia(TokenTrivia::Tab)
-            })
-            .collect::<Vec<Token>>();
         Parser {
-            stream: Stream::from(t),
+            stream: Stream::new(tokens),
             diagnostics,
             id_generator,
         }
@@ -493,7 +493,7 @@ mod tests {
 
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
@@ -517,7 +517,7 @@ mod tests {
 
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
@@ -544,7 +544,7 @@ mod tests {
         .to_vec();
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
@@ -563,7 +563,7 @@ mod tests {
         .to_vec();
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
@@ -585,7 +585,7 @@ mod tests {
         .to_vec();
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
@@ -604,7 +604,7 @@ mod tests {
         .to_vec();
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
@@ -626,7 +626,7 @@ mod tests {
         .to_vec();
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())
@@ -649,7 +649,7 @@ mod tests {
 
         let id = &mut IdGenerator::new(2);
         let diag = &mut Diagnostics::new();
-        let mut parser = Parser::new(tokens, id, diag);
+        let mut parser = Parser::new(tokens.into_iter(), id, diag);
         let node = parser.parse()?;
         insta::assert_snapshot!(node.nodes.snapshot());
         Ok(())

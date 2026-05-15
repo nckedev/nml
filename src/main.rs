@@ -17,8 +17,12 @@ pub mod test_utils;
 mod token;
 mod vm;
 
-use crate::{diagnostics::Diagnostics, parser::*};
-use lexer::{Lexer, LexerErr};
+use crate::{
+    diagnostics::Diagnostics,
+    parser::*,
+    token::{TokenKind, TokenTrivia},
+};
+use lexer::LexerErr;
 use log::Log;
 use scope::IdGenerator;
 use token::Token;
@@ -57,14 +61,18 @@ fn main() -> Result<(), LexerErr> {
     let test_str1 = "let abc = 123 + 1 * 3";
     // let test_str1 = "mod test\nlet a = 123 + 11 * 2 +3";
     let mut diagnostics = Diagnostics::new();
-    let mut t = Lexer::new(test_str1);
-    let tokens = t.tokenize(&mut diagnostics)?;
+    let tokens = lexer::tokenize(test_str1, &mut diagnostics)?;
 
     for t in &tokens {
         println!("{t}")
     }
 
-    let mut p = Parser::new(tokens, &mut id_generator, &mut diagnostics);
+    let t = tokens.into_iter().filter(|x| {
+        x.kind != TokenKind::Trivia(TokenTrivia::Space)
+            && x.kind != TokenKind::Trivia(TokenTrivia::Tab)
+    });
+
+    let mut p = Parser::new(t, &mut id_generator, &mut diagnostics);
     match p.parse() {
         Ok(x) => {
             Log::debug("printing tree");

@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::{span::ByteOffset, stream::LineSeparator};
+use crate::span::ByteOffset;
 
 #[derive(Copy, Clone, Debug, Eq, Default)]
 pub struct SourceChar {
@@ -23,14 +23,6 @@ impl SourceChar {
     }
     pub fn is_alpha_or_number(&self) -> bool {
         self.is_alpha() || self.is_number()
-    }
-}
-
-impl LineSeparator for SourceChar {
-    type Item = SourceChar;
-
-    fn is_line_separator(x: &Self::Item) -> bool {
-        x.ch == '\n'
     }
 }
 

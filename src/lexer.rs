@@ -1,6 +1,9 @@
 use crate::diagnostics::Diagnostics;
+use crate::parser::EndOfStream;
+use crate::parser::ParseErr;
 use crate::source_char::SourCharIterTrait;
 use crate::source_char::SourceChar;
+use crate::source_char::SourceCharIter;
 use crate::source_char::SourceIndex;
 use crate::stream::Stream;
 use crate::token::NumberToken;
@@ -11,259 +14,241 @@ use crate::token::TokenError::Unexpected;
 use crate::token::TokenKind;
 use crate::token::TokenTrivia;
 
-pub struct Lexer {
-    stream: Stream<SourceChar>,
-}
-
 #[derive(Debug)]
 pub struct LexerErr {}
 
-impl Lexer {
-    pub fn new(code: &str) -> Self {
-        Lexer {
-            stream: Stream::from(code.source_chars().collect::<Vec<SourceChar>>()),
-        }
+pub fn tokenize(code: &str, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>, LexerErr> {
+    let mut stream = Stream::new(code.source_chars());
+    let mut tokens = vec![];
+
+    while let Some(v) = stream.take() {
+        let token_kind = match v {
+            SourceChar { ch: '\0', .. } => TokenKind::Eof,
+            // identifier, keyword
+            SourceChar {
+                ch: 'a'..='z' | 'A'..='Z',
+                ..
+            } => {
+                let litteral = stream
+                    .take_while_iter(SourceChar::is_alpha_or_number)
+                    .map(|x| x.ch)
+                    .collect::<String>();
+
+                match_litteral(&(v.ch.to_string() + &litteral))
+            }
+            //number
+            SourceChar {
+                ch: '0'..='9',
+                index: _start,
+                ..
+            } => take_number(&mut stream, &v),
+            //discard _
+            SourceChar { ch: '_', .. } => TokenKind::Discard,
+            // = or == or =>
+            SourceChar { ch: '=', .. } => {
+                if stream.peek_and_step_if('=') {
+                    TokenKind::Eq
+                } else if stream.peek_and_step_if(SourceChar::from('>')) {
+                    TokenKind::FatArrow
+                } else {
+                    TokenKind::Assign
+                }
+            }
+            // >= or >
+            SourceChar { ch: '>', .. } => match stream.peek_and_step_if(SourceChar::from('=')) {
+                true => TokenKind::GtEq,
+                false => TokenKind::Gt,
+            },
+            // <= or <
+            SourceChar { ch: '<', .. } => match stream.peek_and_step_if(SourceChar::from('=')) {
+                true => TokenKind::LtEq,
+                false => TokenKind::Lt,
+            },
+            //arrow or minus
+            SourceChar { ch: '-', .. } => {
+                if stream.peek_and_step_if(SourceChar::from('>')) {
+                    TokenKind::Arrow
+                } else {
+                    TokenKind::Minus
+                }
+            }
+            //math operators
+            SourceChar { ch: '+', .. } => TokenKind::Plus,
+            SourceChar { ch: '*', .. } => TokenKind::Mul,
+            SourceChar { ch: '/', .. } => TokenKind::Div,
+
+            //method accessor or range operator
+            SourceChar { ch: '.', .. } => {
+                if stream.take_if_fn(|c| c.ch == '.').is_some() {
+                    if stream.peek_and_step_if(SourceChar::from('=')) {
+                        // inclusive rage ..=
+                        TokenKind::InclusiveRange
+                    } else {
+                        // range ..
+                        TokenKind::ExclusiveRange
+                    }
+                } else {
+                    // method accessor, or whatever its called
+                    TokenKind::MethodAccessor
+                }
+            }
+            SourceChar { ch: ',', .. } => TokenKind::Separator,
+            SourceChar { ch: '{', .. } => TokenKind::OpenCurl,
+            SourceChar { ch: '}', .. } => TokenKind::CloseCurl,
+            SourceChar { ch: '(', .. } => TokenKind::OpenParen,
+            SourceChar { ch: ')', .. } => TokenKind::CloseParen,
+            SourceChar { ch: '[', .. } => TokenKind::OpenBracket,
+            SourceChar { ch: ']', .. } => TokenKind::CloseBracket,
+            //string and char
+            SourceChar { ch: '"', .. } => TokenKind::Error(Unexpected(v.ch)),
+            SourceChar { ch: '\'', .. } => TokenKind::Error(Unexpected(v.ch)),
+            //whitespace
+            SourceChar { ch: '\n', .. } => TokenKind::Eol,
+            SourceChar { ch: '\t', .. } => TokenKind::Trivia(TokenTrivia::Tab),
+            SourceChar { ch: ' ', .. } => TokenKind::Trivia(TokenTrivia::Space),
+
+            //attribute, @test
+            SourceChar { ch: '@', .. } => {
+                if stream.peek_expect(SourceChar::is_alpha) {
+                    TokenKind::AtMarker
+                } else {
+                    TokenKind::Error(Unexpected(v.ch))
+                }
+
+                // //take until space or newline
+                // //Todo: attribute with parameters @test(arg1, arg2)
+                // let attr_arr = stream.take_until(|x| x.ch == ' ' || x.ch == '\n');
+                // let str: String = attr_arr.into_iter().map(|x| x.ch).collect();
+                // TokenKind::Attribute(str)
+            }
+
+            //np match
+            _ => TokenKind::Error(Unexpected(v.ch)),
+        };
+
+        // get the index of the next token and use that as the end
+        let end = if let Some(next) = stream.peek() {
+            next.index
+        } else {
+            SourceIndex::default()
+        };
+
+        let token = Token {
+            kind: token_kind,
+            span: (v.index, end).into(),
+        };
+
+        tokens.push(token);
+    } // end of while
+
+    //the last entry will not have a correct span
+    let last_index = tokens.len() - 1;
+    if let Some(t) = tokens.get_mut(last_index) {
+        // println!("{:#?}", t);
+        t.span.end = (0_usize, last_index).into();
     }
+    Ok(tokens)
+}
 
-    pub fn tokenize(&mut self, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>, LexerErr> {
-        let mut tokens = vec![];
+/// Returs an number (int or float) from the stream and advances
+fn take_number(stream: &mut Stream<SourceChar, SourceCharIter<'_>>, sc: &SourceChar) -> TokenKind {
+    let mut number_buf: Vec<SourceChar> = vec![];
+    let mut has_dot = false;
+    let mut suffix = NumberTokenSuffix::None;
 
-        while let Some(v) = self.stream.take() {
-            let token_kind = match v {
-                SourceChar { ch: '\0', .. } => TokenKind::Eof,
-                // identifier, keyword
-                SourceChar {
-                    ch: 'a'..='z' | 'A'..='Z',
-                    ..
-                } => {
-                    let litteral = self
-                        .stream
-                        .take_while_iter(SourceChar::is_alpha_or_number)
-                        .map(|x| x.ch)
-                        .collect::<String>();
-
-                    match_litteral(&(v.ch.to_string() + &litteral))
-                }
-                //number
-                SourceChar {
-                    ch: '0'..='9',
-                    index: _start,
-                    ..
-                } => self.take_number(&v),
-                //discard _
-                SourceChar { ch: '_', .. } => TokenKind::Discard,
-                // = or == or =>
-                SourceChar { ch: '=', .. } => {
-                    if self.stream.peek_and_step_if('=') {
-                        TokenKind::Eq
-                    } else if self.stream.peek_and_step_if(SourceChar::from('>')) {
-                        TokenKind::FatArrow
-                    } else {
-                        TokenKind::Assign
-                    }
-                }
-                // >= or >
-                SourceChar { ch: '>', .. } => {
-                    match self.stream.peek_and_step_if(SourceChar::from('=')) {
-                        true => TokenKind::GtEq,
-                        false => TokenKind::Gt,
-                    }
-                }
-                // <= or <
-                SourceChar { ch: '<', .. } => {
-                    match self.stream.peek_and_step_if(SourceChar::from('=')) {
-                        true => TokenKind::LtEq,
-                        false => TokenKind::Lt,
-                    }
-                }
-                //arrow or minus
-                SourceChar { ch: '-', .. } => {
-                    if self.stream.peek_and_step_if(SourceChar::from('>')) {
-                        TokenKind::Arrow
-                    } else {
-                        TokenKind::Minus
-                    }
-                }
-                //math operators
-                SourceChar { ch: '+', .. } => TokenKind::Plus,
-                SourceChar { ch: '*', .. } => TokenKind::Mul,
-                SourceChar { ch: '/', .. } => TokenKind::Div,
-
-                //method accessor or range operator
-                SourceChar { ch: '.', .. } => {
-                    if self.stream.peek_and_step_if(SourceChar::from('.')) {
-                        if self.stream.peek_and_step_if(SourceChar::from('=')) {
-                            // inclusive rage ..=
-                            TokenKind::InclusiveRange
-                        } else {
-                            // range ..
-                            TokenKind::ExclusiveRange
-                        }
-                    } else {
-                        // method accessor, or whatever its called
-                        TokenKind::MethodAccessor
-                    }
-                }
-                SourceChar { ch: ',', .. } => TokenKind::Separator,
-                SourceChar { ch: '{', .. } => TokenKind::OpenCurl,
-                SourceChar { ch: '}', .. } => TokenKind::CloseCurl,
-                SourceChar { ch: '(', .. } => TokenKind::OpenParen,
-                SourceChar { ch: ')', .. } => TokenKind::CloseParen,
-                SourceChar { ch: '[', .. } => TokenKind::OpenBracket,
-                SourceChar { ch: ']', .. } => TokenKind::CloseBracket,
-                //string and char
-                SourceChar { ch: '"', .. } => TokenKind::Error(Unexpected(v.ch)),
-                SourceChar { ch: '\'', .. } => TokenKind::Error(Unexpected(v.ch)),
-                //whitespace
-                SourceChar { ch: '\n', .. } => TokenKind::Eol,
-                SourceChar { ch: '\t', .. } => TokenKind::Trivia(TokenTrivia::Tab),
-                SourceChar { ch: ' ', .. } => TokenKind::Trivia(TokenTrivia::Space),
-
-                //attribute, @test
-                SourceChar { ch: '@', .. } => {
-                    if self.stream.peek_expect(SourceChar::is_alpha) {
-                        TokenKind::AtMarker
-                    } else {
-                        TokenKind::Error(Unexpected(v.ch))
-                    }
-
-                    // //take until space or newline
-                    // //Todo: attribute with parameters @test(arg1, arg2)
-                    // let attr_arr = self.stream.take_until(|x| x.ch == ' ' || x.ch == '\n');
-                    // let str: String = attr_arr.into_iter().map(|x| x.ch).collect();
-                    // TokenKind::Attribute(str)
-                }
-
-                //np match
-                _ => TokenKind::Error(Unexpected(v.ch)),
-            };
-
-            // get the index of the next token and use that as the end
-            let end = if let Some(next) = self.stream.peek() {
-                next.index
-            } else {
-                SourceIndex::default()
-            };
-
-            let token = Token {
-                kind: token_kind,
-                span: (v.index, end).into(),
-            };
-
-            tokens.push(token);
-        } // end of while
-
-        //the last entry will not have a correct span
-        let last_index = tokens.len() - 1;
-        if let Some(t) = tokens.get_mut(last_index) {
-            // println!("{:#?}", t);
-            t.span.end = (0_usize, last_index).into();
-        }
-        Ok(tokens)
-    }
-
-    /// Returs an number (int or float) from the stream and advances
-    fn take_number(&mut self, sc: &SourceChar) -> TokenKind {
-        let mut number_buf: Vec<SourceChar> = vec![];
-        let mut has_dot = false;
-        let mut suffix = NumberTokenSuffix::None;
-
-        // push the first char that has already been taken by the main loop
-        let prefix = match sc.ch {
-            '0' if let Some(SourceChar { ch, .. }) = self.stream.peek() => match ch {
-                'x' => {
-                    let _ = self.stream.take();
-                    NumberTokenPrefix::Hex
-                }
-                'b' => {
-                    let _ = self.stream.take();
-                    NumberTokenPrefix::Bin
-                }
-                'o' => {
-                    let _ = self.stream.take();
-                    NumberTokenPrefix::Oct
-                }
-                '.' => {
-                    // 0..  this is a range operator, return just the 0
-                    if self.stream.peek_n_expect(1, |c| c.ch == '.') {
-                        return TokenKind::Number(NumberToken {
-                            value: "0".to_string(),
-                            prefix: NumberTokenPrefix::None,
-                            suffix: NumberTokenSuffix::None,
-                        });
-                    } else {
-                        number_buf.push(*sc);
-                        NumberTokenPrefix::None
-                    }
-                }
-                '0'..='9' | 'A'..='F' => {
+    // push the first char that has already been taken by the main loop
+    let prefix = match sc.ch {
+        '0' if let Some(SourceChar { ch, .. }) = stream.peek() => match ch {
+            'x' => {
+                let _ = stream.take();
+                NumberTokenPrefix::Hex
+            }
+            'b' => {
+                let _ = stream.take();
+                NumberTokenPrefix::Bin
+            }
+            'o' => {
+                let _ = stream.take();
+                NumberTokenPrefix::Oct
+            }
+            '.' => {
+                // 0..  this is a range operator, return just the 0
+                if stream.peek_n_expect(1, |c| c.ch == '.') {
+                    return TokenKind::Number(NumberToken {
+                        value: "0".to_string(),
+                        prefix: NumberTokenPrefix::None,
+                        suffix: NumberTokenSuffix::None,
+                    });
+                } else {
                     number_buf.push(*sc);
                     NumberTokenPrefix::None
                 }
-                x => NumberTokenPrefix::Invalid(*x),
-            },
-            _ => {
+            }
+            '0'..='9' | 'A'..='F' => {
                 number_buf.push(*sc);
                 NumberTokenPrefix::None
             }
-        };
+            x => NumberTokenPrefix::Invalid(*x),
+        },
+        _ => {
+            number_buf.push(*sc);
+            NumberTokenPrefix::None
+        }
+    };
 
-        while let Some(v) = self.stream.peek().copied() {
-            match v {
-                SourceChar { ch: 'f', .. }
-                    if prefix == NumberTokenPrefix::None
-                        && self
-                            .stream
-                            .peek_n_expect(1, |c| !SourceChar::is_alpha_or_number(c)) =>
-                {
-                    self.stream.take();
-                    suffix = NumberTokenSuffix::Float;
+    while let Some(v) = stream.peek().copied() {
+        match v {
+            SourceChar { ch: 'f', .. }
+                if prefix == NumberTokenPrefix::None
+                    && stream.peek_n_expect(1, |c| !SourceChar::is_alpha_or_number(c)) =>
+            {
+                stream.take();
+                suffix = NumberTokenSuffix::Float;
+                break;
+            }
+            SourceChar {
+                ch: 'a'..='f' | 'A'..='F',
+                ..
+            } => {
+                number_buf.push(v);
+                let _ = stream.take();
+            }
+            SourceChar { ch: '.', .. } if !has_dot => {
+                // if there is two dots in a row it is a range operator
+                // so return what we have got so far as a IntNumber
+                if stream.peek_n_expect(1, |x| x.ch == '.') {
                     break;
                 }
-                SourceChar {
-                    ch: 'a'..='f' | 'A'..='F',
-                    ..
-                } => {
-                    number_buf.push(v);
-                    let _ = self.stream.take();
-                }
-                SourceChar { ch: '.', .. } if !has_dot => {
-                    // if there is two dots in a row it is a range operator
-                    // so return what we have got so far as a IntNumber
-                    if self.stream.peek_n_expect(1, |x| x.ch == '.') {
-                        break;
-                    }
-                    number_buf.push(v);
-                    self.stream.take();
-                    has_dot = true;
-                }
-                SourceChar {
-                    ch: '_', index: _, ..
-                } => {
-                    self.stream.take();
-                }
-                SourceChar {
-                    ch: '0'..='9',
-                    index: _,
-                    ..
-                } => {
-                    number_buf.push(v);
-                    self.stream.take();
-                }
-                // SourceChar {
-                //     ch: 'a'..='z' | 'A'..='Z' | '0'..='9',
-                //     ..
-                // } if has_suffix => suffix_buf.push(v),
-                _ => break,
-            };
-        }
-
-        TokenKind::Number(NumberToken {
-            value: number_buf.iter().map(|x| x.ch).collect(),
-            prefix,
-            suffix,
-        })
+                number_buf.push(v);
+                stream.take();
+                has_dot = true;
+            }
+            SourceChar {
+                ch: '_', index: _, ..
+            } => {
+                stream.take();
+            }
+            SourceChar {
+                ch: '0'..='9',
+                index: _,
+                ..
+            } => {
+                number_buf.push(v);
+                stream.take();
+            }
+            // SourceChar {
+            //     ch: 'a'..='z' | 'A'..='Z' | '0'..='9',
+            //     ..
+            // } if has_suffix => suffix_buf.push(v),
+            _ => break,
+        };
     }
+
+    TokenKind::Number(NumberToken {
+        value: number_buf.iter().map(|x| x.ch).collect(),
+        prefix,
+        suffix,
+    })
 }
 
 fn match_litteral(str: &str) -> TokenKind {
@@ -287,6 +272,7 @@ fn match_litteral(str: &str) -> TokenKind {
 mod lexer_tests {
     use super::*;
     use crate::{
+        lexer,
         test_utils::SnapshotStr,
         token::{NumberTokenPrefix, NumberTokenSuffix},
     };
@@ -298,8 +284,7 @@ mod lexer_tests {
 
     fn token_vector(code: &str, skip_whitespace: bool) -> Vec<Token> {
         let mut diag = Diagnostics::new();
-        let mut l = Lexer::new(code);
-        match l.tokenize(&mut diag) {
+        match lexer::tokenize(code, &mut diag) {
             Ok(value) => value
                 .iter()
                 .filter(|&tok| {
