@@ -63,6 +63,39 @@ impl EndOfStream for ParseErr {
     }
 }
 
+impl<O, E> EndOfStream for Result<O, E>
+where
+    E: EndOfStream,
+{
+    fn end_of_stream() -> Self {
+        Err(E::end_of_stream())
+    }
+}
+
+impl<T> EndOfStream for Option<T> {
+    fn end_of_stream() -> Self {
+        None
+    }
+}
+
+pub trait IsSuccess {
+    fn success(&self) -> bool;
+}
+
+impl<T> IsSuccess for Option<T> {
+    fn success(&self) -> bool {
+        self.is_some()
+    }
+}
+impl<O, E> IsSuccess for Result<O, E>
+where
+    E: EndOfStream,
+{
+    fn success(&self) -> bool {
+        self.is_ok()
+    }
+}
+
 impl<'a, I> Parser<'a, Token, I>
 where
     I: Iterator<Item = Token>,

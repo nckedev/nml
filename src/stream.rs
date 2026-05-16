@@ -1,14 +1,17 @@
 #![allow(dead_code)]
 use std::{collections::VecDeque, iter::Peekable};
 
-use crate::{diagnostics::DiagEntry, parser::EndOfStream};
+use crate::{
+    diagnostics::DiagEntry,
+    parser::{EndOfStream, IsSuccess},
+};
 
 pub struct Stream<T, I>
 where
     T: Clone + PartialEq + std::fmt::Debug,
     I: Iterator<Item = T>,
 {
-    buffer: VecDeque<T>,
+    peek_buffer: VecDeque<T>,
     iter: Peekable<I>,
 }
 
@@ -22,12 +25,12 @@ where
     pub fn new(iter: I) -> Self {
         Self {
             iter: iter.peekable(),
-            buffer: VecDeque::default(),
+            peek_buffer: VecDeque::default(),
         }
     }
     /// Returns the next value without moving forward forward in the stream
     pub fn peek(&mut self) -> Option<&T> {
-        match self.buffer.front() {
+        match self.peek_buffer.front() {
             None => self.iter.peek(),
             x => x,
         }
@@ -35,17 +38,17 @@ where
 
     /// peeks n steps ahead and returns the value without moving forward in the stream
     pub fn peek_n(&mut self, steps: usize) -> Option<&T> {
-        if self.buffer.len() > steps {
-            self.buffer.get(steps)
+        if self.peek_buffer.len() > steps {
+            self.peek_buffer.get(steps)
         } else {
-            let diff = steps - self.buffer.len();
+            let diff = steps - self.peek_buffer.len();
             for _ in 0..=diff {
                 match self.iter.next() {
-                    Some(v) => self.buffer.push_back(v),
+                    Some(v) => self.peek_buffer.push_back(v),
                     _ => break,
                 };
             }
-            self.buffer.get(steps)
+            self.peek_buffer.get(steps)
         }
     }
 
@@ -61,11 +64,11 @@ where
     pub fn peek_n_expect(&mut self, steps: usize, pred: fn(&T) -> bool) -> bool {
         for _ in 0..=steps {
             match self.iter.next() {
-                Some(v) => self.buffer.push_back(v),
+                Some(v) => self.peek_buffer.push_back(v),
                 None => break,
             }
         }
-        if let Some(v) = self.buffer.get(steps)
+        if let Some(v) = self.peek_buffer.get(steps)
             && pred(v)
         {
             return true;
@@ -88,8 +91,8 @@ where
 
     /// takes the elemnt at the front and returns it
     pub fn take(&mut self) -> Option<T> {
-        if !self.buffer.is_empty() {
-            self.buffer.pop_front()
+        if !self.peek_buffer.is_empty() {
+            self.peek_buffer.pop_front()
         } else {
             self.iter.next()
         }
@@ -150,41 +153,46 @@ where
     /// Takes an item of the stream and returns it if it matches the expecations.
     /// Returns an error if the the stream is empty or the element did not meet the expectation.
     /// There is ALWAYS one element taken of the stream regardless of success or not.
-    pub fn take_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
+    pub fn take_expecting<R>(&mut self, pred: impl Fn(T) -> R) -> R
     where
-        E: TryInto<DiagEntry>,
-        E: EndOfStream,
+        R: EndOfStream,
     {
-        let Some(v) = self.take() else {
-            return Err(E::end_of_stream());
-        };
-
-        pred(v)
+        match self.take() {
+            Some(v) => pred(v),
+            None => R::end_of_stream(),
+        }
     }
 
-    pub fn take_if_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
+    pub fn take_if_expecting<R>(&mut self, pred: impl Fn(T) -> R) -> R
     where
-        E: TryInto<DiagEntry>,
-        E: EndOfStream,
+        R: EndOfStream,
+        R: IsSuccess,
     {
-        match self.peek_expecting(&pred) {
-            Ok(_) => pred(self.take().unwrap()),
-            e => e,
+        match self.peek() {
+            Some(v) => {
+                let r = pred(v.clone());
+                if r.success() {
+                    self.take();
+                    r
+                } else {
+                    r
+                }
+            }
+            None => R::end_of_stream(),
         }
     }
 
     /// Peeks the top item of the stream and returns a copy it if it matches the expecations.
     /// Returns an error if the the stream is empty or the element did not meet the expectation.
     /// There is NEVER any element taken of the stream regardless of success or not.
-    pub fn peek_expecting<U, E>(&mut self, pred: impl Fn(T) -> Result<U, E>) -> Result<U, E>
+    pub fn peek_expecting<R>(&mut self, pred: impl Fn(T) -> R) -> R
     where
-        E: TryInto<DiagEntry>,
-        E: EndOfStream,
+        R: EndOfStream,
     {
-        let Some(v) = self.peek() else {
-            return Err(E::end_of_stream());
-        };
-        pred(v.clone())
+        match self.peek() {
+            Some(v) => pred(v.clone()),
+            None => R::end_of_stream(),
+        }
     }
     //
     // pub fn take_until_iter(&mut self, pred: fn(&T) -> bool) -> impl Iterator<Item = T> + '_ {
