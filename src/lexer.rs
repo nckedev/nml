@@ -141,12 +141,6 @@ pub fn tokenize(code: &str, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>
         tokens.push(token);
     } // end of while
 
-    //the last entry will not have a correct span
-    let last_index = tokens.len() - 1;
-    if let Some(t) = tokens.get_mut(last_index) {
-        // println!("{:#?}", t);
-        t.span.end = (0_usize, last_index).into();
-    }
     Ok(tokens)
 }
 
@@ -310,15 +304,20 @@ mod lexer_tests {
     // }
 
     #[rstest]
-    #[case("1.0", "1.0", NumberTokenPrefix::None, NumberTokenSuffix::None)]
-    #[case("10", "10", NumberTokenPrefix::None, NumberTokenSuffix::None)]
-    #[case("10_", "10", NumberTokenPrefix::None, NumberTokenSuffix::None)]
-    #[case("1_000", "1000", NumberTokenPrefix::None, NumberTokenSuffix::None)]
-    #[case("1.0f", "1.0", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
-    #[case("10f", "10", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
-    #[case("1_0_f", "10", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
-    #[case("2.23", "2.23", NumberTokenPrefix::None, NumberTokenSuffix::None)]
-    #[case("0xFF", "FF", NumberTokenPrefix::Hex, NumberTokenSuffix::None)]
+    #[case::float("1.0", "1.0", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case::int("10", "10", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case::int_with_trailing_sep("10_", "10", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case::int_with_sep("1_000", "1000", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case::float_with_f_suffix("1.0f", "1.0", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
+    #[case::int_with_f_suffix("10f", "10", NumberTokenPrefix::None, NumberTokenSuffix::Float)]
+    #[case::int_with_sep_and_f_suffix(
+        "1_0_f",
+        "10",
+        NumberTokenPrefix::None,
+        NumberTokenSuffix::Float
+    )]
+    #[case::float("2.23", "2.23", NumberTokenPrefix::None, NumberTokenSuffix::None)]
+    #[case::hex_prefix("0xFF", "FF", NumberTokenPrefix::Hex, NumberTokenSuffix::None)]
     fn tokenize_number(
         #[case] input: String,
         #[case] expected_value: String,
@@ -356,6 +355,11 @@ mod lexer_tests {
     }
 
     #[test]
+    fn tokenize_let_binding_const_newline() {
+        insta::assert_snapshot!(token_vector("let a = 2\n", false).snapshot());
+    }
+
+    #[test]
     fn tokenize_let_binding_expr() {
         let tokens = token_vector("let a = 1 + 2", true);
         insta::assert_snapshot!(tokens.snapshot());
@@ -382,7 +386,7 @@ mod lexer_tests {
 
     #[test]
     fn if_else_expr() {
-        let tokens = token_vector("if a >= b { a + b } else  { a - b }", true);
+        let tokens = token_vector("if a >= b { a + b } else { a - b }", true);
         insta::assert_snapshot!(tokens.snapshot())
     }
 

@@ -14,4 +14,4 @@ expression: tokens.snapshot()
    1:24 -    1:25 Plus
    1:26 -    1:27 Identifier: b
    1:28 -    1:29 CloseCurl
-   1:29 -    0:22 EOF
+   1:29 -    1:0  EOF

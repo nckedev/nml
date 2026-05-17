@@ -5,4 +5,4 @@ expression: "token_vector(\"0..=10\", true).snapshot()"
    1:0  -    1:1  Number: 0
    1:1  -    1:4  InclusiveRange
    1:4  -    1:6  Number: 10
-   1:6  -    0:3  EOF
+   1:6  -    1:0  EOF

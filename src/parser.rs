@@ -1,5 +1,7 @@
 use std::fmt::{Debug, Display};
 
+use tracing::instrument;
+
 use crate::{
     ast::{Ast, Node, NodeKind, Untyped},
     diagnostics::{DiagEntry, DiagSeverity::Error, Diagnostics},
@@ -39,6 +41,22 @@ impl ParseErr {
         Self::UnexpectedToken {
             token: actual,
             expected: expected.into(),
+        }
+    }
+}
+
+impl Display for ParseErr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseErr::UnexpectedEndOfFile => write!(f, "Unexpected end of file"),
+            ParseErr::UnexpectedToken { token, expected } => write!(
+                f,
+                "Unexpected token, found {}, expected {}.",
+                token.kind, expected,
+            ),
+            ParseErr::NotSupported => write!(f, "Not supported"),
+            ParseErr::Custom(_) => write!(f, "Custom"),
+            ParseErr::NotYetImplemented => write!(f, "Not Implemented"),
         }
     }
 }
@@ -113,6 +131,7 @@ where
         }
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     pub fn parse(&mut self) -> Result<Ast<Untyped>, ParseErr> {
         //self.print();
 
@@ -124,8 +143,17 @@ where
 
         loop {
             match self.parse_stmt() {
+                Ok(Node {
+                    kind: NodeKind::EOF,
+                    ..
+                }) => {
+                    println!("EOF");
+                    break;
+                }
                 Ok(v) => ast.add(v),
-                Err(ParseErr::UnexpectedEndOfFile) => break,
+                Err(ParseErr::UnexpectedEndOfFile) => {
+                    break;
+                }
                 Err(e) => {
                     eprintln!("{:?}", e);
                     self.stream.take();
@@ -139,6 +167,7 @@ where
     //parse order -> addative -> multiplicative -> const
     //
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_addative_expr(&mut self) -> Result<Node, ParseErr> {
         let mut left = self.parse_multiplicative_expr()?;
 
@@ -162,6 +191,7 @@ where
         Ok(left)
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_multiplicative_expr(&mut self) -> Result<Node, ParseErr> {
         let mut left = self.parse_const_expr()?;
 
@@ -184,6 +214,7 @@ where
         Ok(left)
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_const_expr(&mut self) -> Result<Node, ParseErr> {
         let Some(token) = self.stream.take() else {
             return Err(ParseErr::UnexpectedEndOfFile);
@@ -194,10 +225,12 @@ where
                 span: Span::default(),
                 kind: NodeKind::ConstExpr { expr: x.value },
             },
-            TokenKind::Identifier(_ident) => {
-                // TODO: variable lookup
-                todo!()
-            }
+            TokenKind::Identifier(ident) => Node {
+                span: token.span,
+                kind: NodeKind::Ident {
+                    ident: Identifier::new(ident),
+                },
+            },
             // TODO: function call?
             x => {
                 self.diagnostics
@@ -220,6 +253,8 @@ where
     //if statement
     //for loop
     //return
+
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_stmt(&mut self) -> Result<Node, ParseErr> {
         // let Some(stmt_token) = self.stream.take() else {
         //     return Err(ParseErr::UnexpectedEndOfFile);
@@ -233,14 +268,18 @@ where
             TokenKind::Let => self.parse_let_binding(),
             TokenKind::Module => self.parse_module_decl(),
             TokenKind::Type => self.parse_type_decl(),
-            TokenKind::Eol => self.parse_stmt(),
+            TokenKind::Eol => {
+                self.stream.take().ok_or(ParseErr::UnexpectedEndOfFile)?;
+                self.parse_stmt()
+            }
             TokenKind::Eof => Ok(Node {
                 span: stmt.span,
                 kind: NodeKind::EOF,
             }),
             _x => {
                 self.diagnostics
-                    .push(DiagEntry::empty("invalid token".to_string()));
+                    .push(DiagEntry::empty(format!("Invalid token {}", _x)));
+                self.stream.take();
                 self.parse_stmt()
             }
         };
@@ -255,6 +294,7 @@ where
         }
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_let_binding(&mut self) -> Result<Node, ParseErr> {
         // take and discard the let keyword
         let Token { span: let_span, .. } = self.stream.take_expecting(expected_token::any)?;
@@ -278,6 +318,7 @@ where
         })
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_type_decl(&mut self) -> Result<Node, ParseErr> {
         // type Test = { field1 Int, field2 Str }
         // -----------------------------------------  <- TypeDecl
@@ -312,6 +353,7 @@ where
         })
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_module_decl(&mut self) -> Result<Node, ParseErr> {
         let _ = self.stream.take();
         let token = self.stream.take_or(ParseErr::UnexpectedEndOfFile)?;
@@ -339,6 +381,7 @@ where
         }
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_type_decl_body(&mut self) -> Result<Node, ParseErr> {
         // parse the { ... } including the brackets/paren/curlies or if it is just an alias like
         // "type MyType = Int" then the Int part should be parsed
@@ -389,6 +432,7 @@ where
         Ok(body)
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_record_field(&mut self) -> Result<Node, ParseErr> {
         //{
         //  a type, <- parse this
@@ -414,6 +458,7 @@ where
         })
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_enum_variant(&mut self) -> Result<Node, ParseErr> {
         // [A, B, C]
         let (ident, span) = self.stream.take_if_expecting(expected_token::ident)?;
@@ -429,6 +474,7 @@ where
         })
     }
 
+    #[instrument(level = "trace", skip_all, err)]
     fn parse_tuple_member(&mut self) -> Result<Node, ParseErr> {
         // (Int, Str)
         let (ident, span) = self.stream.take_if_expecting(expected_token::ident)?;
