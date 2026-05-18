@@ -142,7 +142,7 @@ impl Iterator for SourceCharIter<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.inner.get(self.curr) {
             Some(ch) => {
-                let r = SourceChar {
+                let sc = SourceChar {
                     ch: *ch as char,
                     index: SourceIndex {
                         row: self.row,
@@ -160,7 +160,7 @@ impl Iterator for SourceCharIter<'_> {
                     self.col += 1;
                 }
                 self.curr += 1;
-                Some(r)
+                Some(sc)
             }
             None if !self.have_yield_eof => {
                 // yield one extra char for end of file

@@ -43,7 +43,19 @@ pub fn tokenize(code: &str, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>
                 ..
             } => take_number(&mut stream, &v),
             //discard _
-            SourceChar { ch: '_', .. } => TokenKind::Discard,
+            SourceChar { ch: '_', .. } => {
+                if stream.peek_expect(SourceChar::is_alpha) {
+                    let litteral = stream
+                        .take_while_iter(SourceChar::is_alpha_or_number)
+                        .map(|x| x.ch)
+                        .collect::<String>();
+
+                    // match_litteral(&format!("{}{}", v.ch, litteral))
+                    match_litteral(&(v.ch.to_string() + &litteral))
+                } else {
+                    TokenKind::Discard
+                }
+            }
             // = or == or =>
             SourceChar { ch: '=', .. } => {
                 if stream.peek_and_step_if('=') {
@@ -347,6 +359,21 @@ mod lexer_tests {
         let token = tokenized.get(index).unwrap();
         assert_eq!(token.span.start, SourceIndex::from(expected_start));
         assert_eq!(token.span.end, SourceIndex::from(expected_end));
+    }
+
+    #[rstest]
+    #[case("_", "discard")]
+    #[case("_ident", "underscore_start")]
+    #[case("ident", "normal")]
+    #[case("ident_", "underscore_last")]
+    #[case("ide_nt", "underscore_middle")]
+    fn tokenize_identifier(#[case] ident: &str, #[case] test_name: &str) {
+        let input = format!("let {} = 2", ident);
+        let tokens = token_vector(&format!("let {} = 2", ident), false).snapshot();
+        insta::assert_snapshot!(
+            format!("{}", test_name),
+            format!("Input: {}\n\n{}", input, tokens)
+        );
     }
 
     #[test]

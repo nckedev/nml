@@ -68,6 +68,8 @@ let my_func = { a Int, b Int -> Int =>
     a + b
 }
 
+let x = my_func 1 (my_func 2 3)
+
 let my_f = a 'Add & 'Sub -> b 'x -> Int => {
     a + b
 }
