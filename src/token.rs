@@ -8,6 +8,10 @@ use std::fmt::Display;
 pub enum TokenKind {
     //litterals
     String(String),
+    EscapedString {
+        count: usize,
+        str: String,
+    },
     Char(u8),
     Number(NumberToken),
     // IntLit(i64),

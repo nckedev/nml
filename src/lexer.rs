@@ -112,7 +112,11 @@ pub fn tokenize(code: &str, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>
             SourceChar { ch: '[', .. } => TokenKind::OpenBracket,
             SourceChar { ch: ']', .. } => TokenKind::CloseBracket,
             //string and char
-            SourceChar { ch: '"', .. } => TokenKind::Error(Unexpected(v.ch)),
+            SourceChar { ch: '"', .. } => {
+                let str = take_string(&mut stream);
+                TokenKind::String(str)
+                // TODO: Escaped strings
+            }
             SourceChar { ch: '\'', .. } => TokenKind::Error(Unexpected(v.ch)),
             //whitespace
             SourceChar { ch: '\n', .. } => TokenKind::Eol,
@@ -156,8 +160,17 @@ pub fn tokenize(code: &str, _diagnostics: &mut Diagnostics) -> Result<Vec<Token>
     Ok(tokens)
 }
 
+fn take_string(stream: &mut Stream<SourceChar, SourceCharIter>) -> String {
+    let str = stream
+        .take_while_iter(|sc| sc.ch != '"')
+        .map(|sc| sc.ch)
+        .collect::<String>();
+    stream.take();
+    str
+}
+
 /// Returs an number (int or float) from the stream and advances
-fn take_number(stream: &mut Stream<SourceChar, SourceCharIter<'_>>, sc: &SourceChar) -> TokenKind {
+fn take_number(stream: &mut Stream<SourceChar, SourceCharIter>, sc: &SourceChar) -> TokenKind {
     let mut number_buf: Vec<SourceChar> = vec![];
     let mut has_dot = false;
     let mut suffix = NumberTokenSuffix::None;
@@ -359,6 +372,17 @@ mod lexer_tests {
         let token = tokenized.get(index).unwrap();
         assert_eq!(token.span.start, SourceIndex::from(expected_start));
         assert_eq!(token.span.end, SourceIndex::from(expected_end));
+    }
+
+    #[rstest]
+    #[case("\"str\"", "normal string")]
+    fn tokeninze_string(#[case] case: &str, #[case] test_name: &str) {
+        let input = format!("let var = {}", case);
+        let tokens = token_vector(&input, false).snapshot();
+        insta::assert_snapshot!(
+            format!("{}", test_name),
+            format!("Input: {}\n\n{}", input, tokens)
+        );
     }
 
     #[rstest]

@@ -1,0 +1,14 @@
+---
+source: src/lexer.rs
+expression: "format!(\"Input: {}\\n\\n{}\", input, tokens)"
+---
+Input: let var = "str"
+
+   1:0  -    1:3  Let
+   1:3  -    1:4  Trivia Space
+   1:4  -    1:7  Identifier: var
+   1:7  -    1:8  Trivia Space
+   1:8  -    1:9  Assign
+   1:9  -    1:10 Trivia Space
+   1:10 -    1:15 String "str"
+   1:15 -    1:0  EOF

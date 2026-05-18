@@ -1,14 +1,11 @@
 #![allow(dead_code)]
-use std::{collections::VecDeque, iter::Peekable};
+use std::{collections::VecDeque, fmt::Debug, iter::Peekable};
 
-use crate::{
-    diagnostics::DiagEntry,
-    parser::{EndOfStream, IsSuccess},
-};
+use crate::parser::{EndOfStream, IsSuccess};
 
 pub struct Stream<T, I>
 where
-    T: Clone + PartialEq + std::fmt::Debug,
+    T: Clone + PartialEq + Debug,
     I: Iterator<Item = T>,
 {
     peek_buffer: VecDeque<T>,
@@ -19,7 +16,7 @@ impl<T, I> Stream<T, I>
 where
     T: Clone,
     T: PartialEq,
-    T: std::fmt::Debug,
+    T: Debug,
     I: Iterator<Item = T>,
 {
     pub fn new(iter: I) -> Self {
@@ -245,7 +242,7 @@ struct StreamTakeIterator<'a, T, I>
 where
     T: Clone,
     T: PartialEq,
-    T: std::fmt::Debug,
+    T: Debug,
     I: Iterator<Item = T>,
 {
     iter: &'a mut Peekable<I>,
@@ -257,7 +254,7 @@ impl<T, I> Iterator for StreamTakeIterator<'_, T, I>
 where
     T: Clone,
     T: PartialEq,
-    T: std::fmt::Debug,
+    T: Debug,
     I: Iterator<Item = T>,
 {
     type Item = T;

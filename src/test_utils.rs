@@ -110,6 +110,7 @@ impl SnapshotStr for Token {
     fn collect(&self, _: usize, buf: &mut String) {
         let str = match &self.kind {
             TokenKind::String(str) => &format!("String \"{}\"", str),
+            TokenKind::EscapedString { count: _, str } => &format!("String \"{}\"", str),
             TokenKind::Char(c) => &format!("Char '{}'", c),
             TokenKind::Number(number_token) => {
                 let prefix = match number_token.prefix {
